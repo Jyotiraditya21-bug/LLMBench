@@ -1,0 +1,54 @@
+name: AI Quality Gate
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-gate:
+    name: Run LLM Regression Suite
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Repository Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install CI Runner Requirements
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests sqlalchemy asyncpg jinja2
+
+    - name: Spin up Docker Compose Environment
+      run: |
+        docker-compose up -d db redis web
+        # Give PostgreSQL and Uvicorn a few seconds to warm up and bind ports
+        sleep 10
+
+    - name: Run Quality Gate Regression Test
+      env:
+        EVALFORGE_BACKEND_URL: http://localhost:8000/api/v1
+        EVALFORGE_API_KEY: evalforge_admin_secret_key
+        EVALFORGE_DATASET_ID: 1
+        EVALFORGE_BASELINE_RUN_ID: 1
+        EVALFORGE_PROMPT_ID: 2
+        EVALFORGE_MODELS: claude-3-haiku
+      run: |
+        python backend/app/workers/quality_gate.py
+
+    - name: Compile Static HTML Report
+      run: |
+        PYTHONPATH=. python backend/app/workers/report_generator.py
+
+    - name: Deploy static report to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
