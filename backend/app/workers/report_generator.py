@@ -72,7 +72,7 @@ async def compile_report(run_id: int) -> str:
         )
         os.makedirs(output_dir, exist_ok=True)
         
-        output_path = os.path.join(output_dir, "index.html")
+        output_path = os.path.join(output_dir, "report.html")
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(rendered_html)
             
