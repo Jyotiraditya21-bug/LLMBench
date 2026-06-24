@@ -1,10 +1,11 @@
 import asyncio
-from backend.app.core.database import async_session_maker, init_db
+from backend.app.core.database import async_session_maker, init_db, drop_db
 from backend.app.models.dataset import Dataset, TestCase
 from backend.app.models.prompt import Prompt
 from backend.app.models.evaluation import EvaluationRun, EvaluationResult
 
 async def seed():
+    await drop_db()
     await init_db()
     async with async_session_maker() as db:
         # Create dataset

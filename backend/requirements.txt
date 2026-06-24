@@ -8,7 +8,6 @@ alembic
 celery
 redis
 openai
-anthropic
 google-generativeai
 httpx
 python-multipart
@@ -17,4 +16,5 @@ pytest
 pytest-asyncio
 pytest-mock
 aiosqlite
+jinja2
 

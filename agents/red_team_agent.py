@@ -65,7 +65,7 @@ async def generate_adversarial_cases(seed_cases: List[Dict[str, Any]]) -> List[D
     raw_text = None
 
     # 1. Attempt Anthropic (Claude 3.5 Sonnet)
-    if settings.ANTHROPIC_API_KEY:
+    if settings.ANTHROPIC_API_KEY and settings.HAS_ANTHROPIC:
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             response = await client.messages.create(

@@ -3,7 +3,6 @@ import re
 import time
 from typing import Any, Dict, Optional
 
-# AI SDK clients
 import anthropic
 import google.generativeai as genai
 import openai
@@ -74,7 +73,7 @@ async def call_target_llm(
 
     # --- Case 2: Anthropic Models ---
     elif model_lower.startswith("claude-"):
-        if not settings.ANTHROPIC_API_KEY:
+        if not settings.ANTHROPIC_API_KEY or not settings.HAS_ANTHROPIC:
             time.sleep(0.6)
             output = f"[MOCK ANTHROPIC {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
@@ -190,7 +189,7 @@ async def evaluate_with_judge(
 
     # Choose available API key for the Judge
     raw_text = None
-    if settings.ANTHROPIC_API_KEY:
+    if settings.ANTHROPIC_API_KEY and settings.HAS_ANTHROPIC:
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             response = await client.messages.create(

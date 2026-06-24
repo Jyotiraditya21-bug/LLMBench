@@ -48,3 +48,16 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+
+async def drop_db() -> None:
+    """Drops all tables in the database."""
+    from backend.app.models.dataset import Dataset, TestCase
+    from backend.app.models.prompt import Prompt
+    from backend.app.models.evaluation import EvaluationRun, EvaluationResult
+    from backend.app.models.regression import RegressionReport
+    from backend.app.models.base import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+

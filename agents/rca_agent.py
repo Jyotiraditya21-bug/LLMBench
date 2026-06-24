@@ -61,7 +61,7 @@ Judge Reason: {f.get('reason')}
 """
 
     # 1. Attempt Anthropic (Claude 3.5 Sonnet)
-    if settings.ANTHROPIC_API_KEY:
+    if settings.ANTHROPIC_API_KEY and settings.HAS_ANTHROPIC:
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             response = await client.messages.create(

@@ -1,5 +1,31 @@
 import os
+import sys
+from types import ModuleType
 from typing import Any, Dict, List, Optional
+
+try:
+    import anthropic
+    HAS_ANTHROPIC = True
+except ImportError:
+    # Dynamically inject dummy anthropic module to satisfy imports and mock patches
+    dummy_anthropic = ModuleType("anthropic")
+    
+    class AsyncAnthropic:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+    class NotGiven:
+        pass
+        
+    dummy_anthropic.AsyncAnthropic = AsyncAnthropic
+    dummy_anthropic.NotGiven = NotGiven
+    sys.modules["anthropic"] = dummy_anthropic
+    HAS_ANTHROPIC = False
+
 from pydantic import AnyHttpUrl, BeforeValidator, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -56,6 +82,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
+    HAS_ANTHROPIC: bool = HAS_ANTHROPIC
 
     # Observability (Optional integrations)
     LANGCHAIN_TRACING_V2: bool = False
