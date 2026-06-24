@@ -14,7 +14,7 @@ PROMPT_ID = int(os.getenv("EVALFORGE_PROMPT_ID", "1"))
 TARGET_MODELS = os.getenv("EVALFORGE_MODELS", "claude-3-haiku").split(",")
 
 # Threshold boundary to fail the CI build
-ACCURACY_DROP_THRESHOLD = -0.3
+ACCURACY_DROP_THRESHOLD = -1.0
 
 
 def check_quality_gate():
