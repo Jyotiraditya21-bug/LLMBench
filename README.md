@@ -1,3 +1,11 @@
+---
+title: LLMBench
+emoji: ⚖️
+colorFrom: green
+colorTo: green
+sdk: docker
+app_port: 7860
+---
 
 # LLMBench: LLM Evaluation and Regression Testing Platform
 https://jyotiraditya21-bug.github.io/LLMBench/
