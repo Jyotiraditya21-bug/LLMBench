@@ -30,7 +30,7 @@ jobs:
 
     - name: Start Redis Server
       run: |
-        sudo service redis-server start || true
+        redis-server --daemonize yes || sudo service redis-server start || true
         sleep 1
 
     - name: Seed Database (SQLite)
@@ -44,14 +44,38 @@ jobs:
         USE_SQLITE: "true"
       run: |
         PYTHONPATH=. python -m uvicorn backend.app.main:app --port 8000 &
-        sleep 3
+
+    - name: Wait for FastAPI Backend to be healthy
+      run: |
+        echo "Waiting for FastAPI backend to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8000/health; then
+            echo "FastAPI backend is healthy!"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Error: FastAPI backend failed to start."
+        exit 1
 
     - name: Start Celery Worker in background
       env:
         USE_SQLITE: "true"
       run: |
         PYTHONPATH=. celery -A backend.app.core.celery_app worker --pool=solo --loglevel=info &
-        sleep 2
+
+    - name: Wait for Celery Worker to be ready
+      run: |
+        echo "Waiting for Celery worker to start..."
+        for i in {1..30}; do
+          if celery -A backend.app.core.celery_app inspect ping; then
+            echo "Celery worker is ready!"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Error: Celery worker failed to start."
+        exit 1
 
     - name: Run Quality Gate Regression Test
       env:
