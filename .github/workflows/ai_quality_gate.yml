@@ -1,6 +1,8 @@
 name: AI Quality Gate
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -32,13 +34,17 @@ jobs:
         # Give PostgreSQL and Uvicorn a few seconds to warm up and bind ports
         sleep 10
 
+    - name: Seed Database
+      run: |
+        docker-compose exec -T web python -m backend.app.core.seed_db
+
     - name: Run Quality Gate Regression Test
       env:
         EVALFORGE_BACKEND_URL: http://localhost:8000/api/v1
         EVALFORGE_API_KEY: evalforge_admin_secret_key
         EVALFORGE_DATASET_ID: 1
         EVALFORGE_BASELINE_RUN_ID: 1
-        EVALFORGE_PROMPT_ID: 2
+        EVALFORGE_PROMPT_ID: 1
         EVALFORGE_MODELS: claude-3-haiku
       run: |
         python backend/app/workers/quality_gate.py
