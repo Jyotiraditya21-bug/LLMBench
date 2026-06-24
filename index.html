@@ -3,711 +3,761 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLMBench | Run #2 Evaluation Report</title>
-    <!-- Outfit Font & Plotly CDN -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>LLMBench | AI Quality Engineering Platform</title>
+    <!-- Playfair Display, Plus Jakarta Sans, & JetBrains Mono Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Plotly CDN -->
     <script src="https://cdn.plot.ly/plotly-2.24.0.min.js"></script>
-    <style>
-        :root {
-            --bg-color: #142718;
-            --card-bg: rgba(46, 91, 65, 0.25);
-            --border-color: rgba(152, 203, 176, 0.15);
-            --text-main: #E7EFE4;
-            --text-muted: #98CBB0;
-            --accent-green: #98CBB0;
-            --accent-pine: #2E5B41;
-            --accent-red: #F43F5E;
-            --accent-cream: #E7EFE4;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-color);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--accent-pine);
-            border-radius: 5px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--accent-green);
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0 0 60px 0;
-            /* Subtly animated gradient backdrop matching our forest palette */
-            background-image: radial-gradient(circle at 10% 20%, rgba(46, 91, 65, 0.15) 0%, transparent 40%),
-                              radial-gradient(circle at 90% 80%, rgba(20, 39, 24, 0.2) 0%, transparent 50%);
-        }
-
-        /* --- Header Navigation --- */
-        .nav-bar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: rgba(20, 39, 24, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 40px;
-            padding: 18px 24px;
-        }
-        
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .nav-logo {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 800;
-            font-size: 1.4rem;
-            color: var(--accent-green);
-            letter-spacing: -0.02em;
-        }
-        
-        .nav-links a {
-            color: var(--text-main);
-            text-decoration: none;
-            margin-left: 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: color 0.3s ease;
-            position: relative;
-            padding-bottom: 6px;
-        }
-        
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: 0;
-            left: 0;
-            background-color: var(--accent-green);
-            transition: width 0.3s ease;
-        }
-        
-        .nav-links a:hover::after {
-            width: 100%;
-        }
-        
-        .nav-links a:hover {
-            color: var(--accent-green);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        header {
-            margin-bottom: 40px;
-            text-align: center;
-        }
-
-        h1 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 2.8rem;
-            margin: 0 0 10px 0;
-            font-weight: 800;
-            color: var(--accent-cream);
-        }
-
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            margin: 0;
-        }
-
-        /* --- Scroll Entrance Animations --- */
-        .scroll-section {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), 
-                        transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        
-        .scroll-section.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* --- KPI Grid --- */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-
-        .kpi-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 12px -2px rgba(20, 39, 24, 0.5);
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
-                        border-color 0.4s ease, 
-                        box-shadow 0.4s ease;
-        }
-
-        .kpi-card:hover {
-            transform: translateY(-6px);
-            border-color: var(--accent-green);
-            box-shadow: 0 12px 24px -10px rgba(152, 203, 176, 0.4);
-        }
-
-        .kpi-label {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-        }
-
-        .kpi-value {
-            font-family: 'Outfit', sans-serif;
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--accent-green);
-        }
-
-        /* --- Layout Sections --- */
-        .section-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-
-        @media (min-width: 900px) {
-            .section-grid {
-                grid-template-columns: 2fr 1fr;
-            }
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 12px -2px rgba(20, 39, 24, 0.4);
-            backdrop-filter: blur(10px);
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
-                        border-color 0.4s ease, 
-                        box-shadow 0.4s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-6px);
-            border-color: rgba(152, 203, 176, 0.4);
-            box-shadow: 0 12px 24px -10px rgba(46, 91, 65, 0.6);
-        }
-
-        h2 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.5rem;
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-weight: 600;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            color: var(--accent-cream);
-        }
-
-        .metadata-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .metadata-list li {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .metadata-list li:last-child {
-            border-bottom: none;
-        }
-
-        .metadata-label {
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .metadata-value {
-            font-weight: 600;
-        }
-
-        /* --- Chart slots --- */
-        .chart-container {
-            width: 100%;
-            height: 400px;
-        }
-
-        /* --- Results Table --- */
-        .table-card {
-            animation: fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-            animation-delay: 0.35s;
-        }
-
-        .table-container {
-            overflow-x: auto;
-            margin-top: 20px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.9rem;
-        }
-
-        th {
-            background-color: rgba(46, 91, 65, 0.2);
-            color: var(--text-main);
-            font-weight: 600;
-            padding: 14px 16px;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        td {
-            padding: 14px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            vertical-align: top;
-            max-width: 300px;
-            word-wrap: break-word;
-        }
-
-        tr:hover {
-            background-color: rgba(255, 255, 255, 0.02);
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-status-completed {
-            background-color: rgba(152, 203, 176, 0.15);
-            color: var(--accent-green);
-            border: 1px solid rgba(152, 203, 176, 0.3);
-        }
-
-        .score {
-            font-weight: 700;
-            color: var(--accent-green);
-        }
-
-        /* --- Search & Filters --- */
-        .search-filter-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-bottom: 24px;
-        }
-        @media (min-width: 768px) {
-            .search-filter-container {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-            }
-        }
-        .form-input {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            padding: 12px 18px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            outline: none;
-            width: 100%;
-            max-width: 400px;
-            transition: border-color 0.3s ease;
-        }
-        .form-input:focus {
-            border-color: var(--accent-green);
-        }
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .filter-label {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-        .filter-btn {
-            background-color: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .filter-btn:hover, .filter-btn.active {
-            background-color: var(--accent-pine);
-            color: var(--text-main);
-            border-color: var(--accent-green);
-        }
-        th.sortable {
-            cursor: pointer;
-            user-select: none;
-            position: relative;
-        }
-        th.sortable:hover {
-            background-color: rgba(46, 91, 65, 0.4);
-            color: var(--accent-green);
-        }
-        th.sortable::after {
-            content: ' ↕';
-            font-size: 0.75rem;
-            opacity: 0.5;
-        }
-        th.sortable.asc::after {
-            content: ' ↑';
-            opacity: 1;
-            color: var(--accent-green);
-        }
-        th.sortable.desc::after {
-            content: ' ↓';
-            opacity: 1;
-            color: var(--accent-green);
-        }
-    </style>
+    <link rel="stylesheet" href="style.css?v=1.0.1">
 </head>
 <body>
-    <!-- Sticky Navigation Bar -->
-    <div class="nav-bar">
-        <div class="nav-container">
-            <span class="nav-logo">LLMBench</span>
-            <div class="nav-links">
-                <a href="#summary">Summary</a>
-                <a href="#charts">Metrics Chart</a>
-                <a href="#results">Detailed Results</a>
+    <!-- Viewport Register Marks (anchormem style) -->
+    <div class="vp-corner tl"></div>
+    <div class="vp-corner tr"></div>
+    <div class="vp-corner bl"></div>
+    <div class="vp-corner br"></div>
+
+    <!-- Top Sticky Header Navigation (anchormem.me layout style) -->
+    <header class="masthead">
+        <div class="brand">
+            <span class="brand-logo">LLMBench</span>
+            <span class="tagline">AI Quality &amp; LLM Engineering Platform</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="#dashboard" class="menu-item active">Dashboard</a>
+            <a href="#datasets" class="menu-item">Datasets</a>
+            <a href="#arena" class="menu-item">Prompt Arena</a>
+            <a href="#hub" class="menu-item">Evaluation Hub</a>
+            <a href="#rca" class="menu-item">Agent RCA</a>
+            <a href="#cost" class="menu-item">Cost Analytics</a>
+        </nav>
+        <div class="top-actions">
+            <a href="https://github.com/Jyotiraditya21-bug/LLMBench" target="_blank" class="top-btn github-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>GitHub
+            </a>
+            <button class="top-btn guide-btn" onclick="openProductGuide()">
+                How to Use
+            </button>
+        </div>
+        <!-- Viewport Scroll Indicator Line -->
+        <div class="scroll-progress-container">
+            <div id="scroll-progress" class="scroll-progress-bar"></div>
+        </div>
+    </header>
+
+    <div class="app-layout">
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- 1. Dashboard Tab -->
+            <section id="dashboard" class="scroll-section">
+                <header class="tab-header">
+                    <h1>Dashboard</h1>
+                    <p class="tab-subtitle">LLM Evaluation, Regression Testing & AI Quality Monitoring Platform</p>
+                </header>
+                
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Datasets</div>
+                        <div id="kpi-datasets" class="kpi-value">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Prompt Templates</div>
+                        <div id="kpi-prompts" class="kpi-value">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Evaluation Runs</div>
+                        <div id="kpi-runs" class="kpi-value">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Spent (USD)</div>
+                        <div id="kpi-cost" class="kpi-value">$0.0000</div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard & System Diagnostics Layout -->
+                <div class="flex-row" style="gap: 30px; margin-bottom: 30px; flex-wrap: wrap;">
+                    <div class="card col-half" style="margin: 0; flex: 1; min-width: 320px;">
+                        <div class="card-header-grip" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h2 style="margin: 0;">Model Leaderboard</h2>
+                            <div class="grip-handle"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                        <p class="card-description">Aggregated benchmarks graded by LLM-as-a-Judge.</p>
+                        <div class="table-container">
+                            <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
+                                        <th style="padding: 8px 0;">Rank</th>
+                                        <th style="padding: 8px 0;">Model</th>
+                                        <th style="padding: 8px 0;">Accuracy</th>
+                                        <th style="padding: 8px 0;">Avg Latency</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(194,125,56,0.08);">
+                                        <td style="padding: 10px 0;">1</td>
+                                        <td style="padding: 10px 0;"><strong>Claude 3.5 Sonnet</strong></td>
+                                        <td style="padding: 10px 0;"><span class="badge badge-status-completed" style="font-size:0.75rem; padding: 2px 6px;">4.50 / 5.0</span></td>
+                                        <td style="padding: 10px 0; font-family: var(--font-mono); font-size: 0.8rem;">850 ms</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(194,125,56,0.08);">
+                                        <td style="padding: 10px 0;">2</td>
+                                        <td style="padding: 10px 0;"><strong>GPT-4o</strong></td>
+                                        <td style="padding: 10px 0;"><span class="badge badge-status-completed" style="font-size:0.75rem; padding: 2px 6px;">4.50 / 5.0</span></td>
+                                        <td style="padding: 10px 0; font-family: var(--font-mono); font-size: 0.8rem;">1240 ms</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(194,125,56,0.08);">
+                                        <td style="padding: 10px 0;">3</td>
+                                        <td style="padding: 10px 0;"><strong>Gemini 1.5 Pro</strong></td>
+                                        <td style="padding: 10px 0;"><span class="badge badge-status-completed" style="font-size:0.75rem; padding: 2px 6px;">4.20 / 5.0</span></td>
+                                        <td style="padding: 10px 0; font-family: var(--font-mono); font-size: 0.8rem;">980 ms</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0;">4</td>
+                                        <td style="padding: 10px 0;"><strong>Gemini 1.5 Flash</strong></td>
+                                        <td style="padding: 10px 0;"><span class="badge badge-status-completed" style="font-size:0.75rem; padding: 2px 6px;">3.80 / 5.0</span></td>
+                                        <td style="padding: 10px 0; font-family: var(--font-mono); font-size: 0.8rem;">420 ms</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card col-half" style="margin: 0; flex: 1; min-width: 320px; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div class="card-header-grip" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h2 style="margin: 0;">Platform Diagnostics</h2>
+                                <div class="grip-handle"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; font-size: 0.9rem;">
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono);">Web Server</span>
+                                    <span style="color: var(--accent-emerald); font-weight: 600; margin-top: 4px;">● Online</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono);">Celery Queue</span>
+                                    <span style="color: var(--accent-emerald); font-weight: 600; margin-top: 4px;">● Connected</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono);">Database</span>
+                                    <span style="color: var(--accent-emerald); font-weight: 600; margin-top: 4px;">● Connected</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono);">Worker Pools</span>
+                                    <span style="color: var(--accent-green); font-weight: 600; margin-top: 4px;">1 solo pool</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 20px;">
+                            <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono); display: block; margin-bottom: 10px;">Quick Shortcuts</span>
+                            <div style="display: flex; gap: 8px;">
+                                <a href="#hub" class="btn primary-btn top-btn" style="text-decoration: none; font-size: 0.75rem; padding: 6px 12px;">Trigger Eval</a>
+                                <a href="#datasets" class="btn top-btn github-btn" style="text-decoration: none; font-size: 0.75rem; padding: 6px 12px;">Upload Cases</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h2>LLM Cost-to-Quality Efficiency Frontier</h2>
+                    <p class="card-description">Quality vs. Cost Scale (Bubble Size = Latency)</p>
+                    <div id="frontier-chart" class="chart-container"></div>
+                </div>
+
+                <div class="card">
+                    <h2>Recent Evaluation Runs</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Run ID</th>
+                                    <th>Dataset ID</th>
+                                    <th>Prompt ID</th>
+                                    <th>Status</th>
+                                    <th>Accuracy</th>
+                                    <th>Hallucination Rate</th>
+                                    <th>Cost</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-runs-table-body">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">Loading evaluation runs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Datasets Tab -->
+            <section id="datasets" class="scroll-section">
+                <header class="tab-header">
+                    <h1>Dataset Management</h1>
+                    <p class="tab-subtitle">Manage evaluation test suites, categories, and test cases.</p>
+                </header>
+
+                <div class="card expander-card">
+                    <div class="expander-header" onclick="toggleExpander('create-dataset-expander')">
+                        <span class="expander-title">Create New Dataset</span>
+                        <span class="expander-icon">+</span>
+                    </div>
+                    <div id="create-dataset-expander" class="expander-content hidden">
+                        <form id="create-dataset-form" class="form-grid">
+                            <div class="form-group">
+                                <label for="ds-name">Dataset Name</label>
+                                <input type="text" id="ds-name" required placeholder="e.g. Customer Support Core QA">
+                            </div>
+                            <div class="form-group">
+                                <label for="ds-version">Version</label>
+                                <input type="text" id="ds-version" value="1.0.0" required placeholder="e.g. 1.0.0">
+                            </div>
+                            <div class="form-group">
+                                <label for="ds-category">Primary Evaluation Domain</label>
+                                <select id="ds-category">
+                                    <option value="factual">factual</option>
+                                    <option value="reasoning" selected>reasoning</option>
+                                    <option value="hallucination">hallucination</option>
+                                    <option value="tone">tone</option>
+                                    <option value="safety">safety</option>
+                                    <option value="adversarial">adversarial</option>
+                                    <option value="rag">rag</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="ds-description">Description</label>
+                                <textarea id="ds-description" placeholder="Enter dataset goals or source notes..."></textarea>
+                            </div>
+                            <button type="submit" class="btn primary-btn">Create Dataset</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card selector-card">
+                    <label for="ds-selector">Select Dataset to Inspect / Manage</label>
+                    <select id="ds-selector" onchange="loadSelectedDataset()">
+                        <option value="">Loading datasets...</option>
+                    </select>
+                </div>
+
+                <div id="dataset-details-container" class="hidden">
+                    <div class="card bg-accent-pine">
+                        <h2 id="inspect-ds-title">Dataset Details</h2>
+                        <div class="metadata-row">
+                            <span>Version: <strong id="inspect-ds-version">1.0.0</strong></span>
+                            <span>Category: <strong id="inspect-ds-category">reasoning</strong></span>
+                        </div>
+                        <p id="inspect-ds-description" class="text-muted">No description provided.</p>
+                    </div>
+
+                    <!-- Inner tabs for managing dataset test cases -->
+                    <div class="inner-tabs-container">
+                        <div class="inner-tabs">
+                            <button class="inner-tab-btn active" onclick="switchInnerTab('cases-list', this)">Test Cases List</button>
+                            <button class="inner-tab-btn" onclick="switchInnerTab('cases-upload', this)">Batch Upload JSON</button>
+                            <button class="inner-tab-btn" onclick="switchInnerTab('cases-add-single', this)">Add Single Case</button>
+                        </div>
+                        
+                        <div class="inner-tab-content">
+                            <!-- Inner Tab 1: List -->
+                            <div id="inner-tab-cases-list" class="inner-tab-panel active">
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Category</th>
+                                                <th>Question</th>
+                                                <th>Expected Output (Ground Truth)</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="testcases-table-body">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">No test cases in this dataset.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="card inline-form-card" style="margin-top: 24px;">
+                                    <h3>Delete Test Case</h3>
+                                    <div class="flex-row">
+                                        <select id="delete-tc-selector">
+                                            <option value="">Select ID...</option>
+                                        </select>
+                                        <button class="btn danger-btn" onclick="deleteTestCase()">Delete Selected Case</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Inner Tab 2: Upload -->
+                            <div id="inner-tab-cases-upload" class="inner-tab-panel">
+                                <h3>Upload JSON Test Cases Array</h3>
+                                <pre class="code-block"><code>[
+  {
+    "question": "What is diabetes?",
+    "ground_truth": "Diabetes is a chronic disease where the body cannot regulate glucose...",
+    "category": "factual",
+    "meta_data": {"difficulty": "easy"}
+  }
+]</code></pre>
+                                <div class="form-group">
+                                    <label for="upload-json-input">Paste JSON Array Content</label>
+                                    <textarea id="upload-json-input" rows="8" placeholder="Paste valid JSON list here..."></textarea>
+                                </div>
+                                <button class="btn primary-btn" onclick="uploadBatchTestCases()">Upload and Save Batch</button>
+                            </div>
+
+                            <!-- Inner Tab 3: Add Single -->
+                            <div id="inner-tab-cases-add-single" class="inner-tab-panel">
+                                <h3>Append Single Test Case</h3>
+                                <form id="add-single-case-form" class="form-grid">
+                                    <div class="form-group full-width">
+                                        <label for="tc-question">Question / Input Prompt</label>
+                                        <textarea id="tc-question" required placeholder="e.g. Write a brief history of AI."></textarea>
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label for="tc-ground-truth">Ground Truth / Expected Output</label>
+                                        <textarea id="tc-ground-truth" required placeholder="e.g. Artificial Intelligence started in the 1950s with Alan Turing..."></textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="tc-category">TestCase Category Tag</label>
+                                        <input type="text" id="tc-category" value="reasoning" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="tc-metadata">Metadata (JSON dict)</label>
+                                        <input type="text" id="tc-metadata" value="{}">
+                                    </div>
+                                    <button type="submit" class="btn primary-btn">Save Test Case</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Prompt Arena Tab -->
+            <section id="arena" class="scroll-section">
+                <header class="tab-header">
+                    <h1>Prompt Arena & Benchmark</h1>
+                    <p class="tab-subtitle">Compare prompt templates and rank versions by accuracy, latency, and cost.</p>
+                </header>
+
+                <div class="card expander-card">
+                    <div class="expander-header" onclick="toggleExpander('create-prompt-expander')">
+                        <span class="expander-title">Register Prompt Template Version</span>
+                        <span class="expander-icon">+</span>
+                    </div>
+                    <div id="create-prompt-expander" class="expander-content hidden">
+                        <form id="create-prompt-form" class="form-grid">
+                            <div class="form-group">
+                                <label for="pr-name">Template Name</label>
+                                <input type="text" id="pr-name" required placeholder="e.g. Reasoning Scaffold Prompt">
+                            </div>
+                            <div class="form-group">
+                                <label for="pr-version">Version Tag</label>
+                                <input type="text" id="pr-version" required placeholder="e.g. V1.0">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="pr-system">System Instruction Context</label>
+                                <textarea id="pr-system" placeholder="e.g. You are a helpful assistant..."></textarea>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="pr-user">User Template Text</label>
+                                <textarea id="pr-user" required placeholder="Answer the question: {{question}}"></textarea>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="pr-description">Release Notes</label>
+                                <input type="text" id="pr-description" placeholder="What changed in this template?">
+                            </div>
+                            <button type="submit" class="btn primary-btn">Register Template</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Prompt Arena Comparison Playground</h2>
+                    <div class="comparison-selectors form-grid">
+                        <div class="form-group">
+                            <label for="arena-group-selector">Select Prompt Template Group</label>
+                            <select id="arena-group-selector" onchange="loadArenaGroupVersions()">
+                                <option value="">Loading template groups...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="arena-base-selector">Select Baseline Version (A)</label>
+                            <select id="arena-base-selector" onchange="renderArenaComparison()">
+                                <option value="">Select Baseline...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="arena-comp-selector">Select Comparison Version (B)</label>
+                            <select id="arena-comp-selector" onchange="renderArenaComparison()">
+                                <option value="">Select Comparison...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="arena-comparison-sidebyside" class="flex-row hidden">
+                        <div class="comparison-box">
+                            <div class="box-header">Baseline Prompt (A)</div>
+                            <div class="box-body">
+                                <strong>System Prompt:</strong>
+                                <pre><code id="arena-base-system">None</code></pre>
+                                <strong>User Template:</strong>
+                                <pre><code id="arena-base-user">User Template</code></pre>
+                            </div>
+                        </div>
+                        <div class="comparison-box">
+                            <div class="box-header">Comparison Prompt (B)</div>
+                            <div class="box-body">
+                                <strong>System Prompt:</strong>
+                                <pre><code id="arena-comp-system">None</code></pre>
+                                <strong>User Template:</strong>
+                                <pre><code id="arena-comp-user">User Template</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="arena-regression-panel" class="card hidden">
+                    <h2>Regression Check & Deltas</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="arena-base-run-selector">Select Run for Baseline (A)</label>
+                            <select id="arena-base-run-selector">
+                                <option value="">Select Baseline Run...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="arena-comp-run-selector">Select Run for Comparison (B)</label>
+                            <select id="arena-comp-run-selector">
+                                <option value="">Select Comparison Run...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn primary-btn" onclick="triggerRegressionReport()">Trigger Regression Analysis Report</button>
+
+                    <!-- Regression Report Metrics Display -->
+                    <div id="regression-report-container" class="hidden" style="margin-top: 30px;">
+                        <h3 class="success-heading">Regression Report Generated Successfully</h3>
+                        
+                        <div class="kpi-grid">
+                            <div class="kpi-card">
+                                <div class="kpi-label">Average Accuracy Delta</div>
+                                <div id="reg-kpi-accuracy" class="kpi-value">+0.00</div>
+                                <div id="reg-sub-accuracy" class="kpi-label" style="text-transform:none; margin-top:5px;">Baseline: 0.00</div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="kpi-label">Avg Latency Delta</div>
+                                <div id="reg-kpi-latency" class="kpi-value">+0.0 ms</div>
+                                <div class="kpi-label" style="text-transform:none; margin-top:5px;">Lower is better</div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="kpi-label">Cost Delta</div>
+                                <div id="reg-kpi-cost" class="kpi-value">+$0.00000</div>
+                                <div class="kpi-label" style="text-transform:none; margin-top:5px;">Lower is better</div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="kpi-label">Hallucination Rate Delta</div>
+                                <div id="reg-kpi-hallucination" class="kpi-value">+0.00%</div>
+                                <div class="kpi-label" style="text-transform:none; margin-top:5px;">Lower is better</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card" style="margin-top: 30px;">
+                            <h3>Metric Dimensions Overview (Radar Plot)</h3>
+                            <div id="arena-radar-chart" class="chart-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Evaluation Hub Tab -->
+            <section id="hub" class="scroll-section">
+                <header class="tab-header">
+                    <h1>Evaluation Hub & Pipeline</h1>
+                    <p class="tab-subtitle">Schedule evaluation runs, monitor real-time execution, and inspect historical logs.</p>
+                </header>
+
+                <div class="inner-tabs-container">
+                    <div class="inner-tabs">
+                        <button class="inner-tab-btn active" onclick="switchInnerTab('hub-trigger', this)">Trigger New Evaluation Run</button>
+                        <button class="inner-tab-btn" onclick="switchInnerTab('hub-history', this)">Historical Execution Logs</button>
+                    </div>
+
+                    <div class="inner-tab-content">
+                        <!-- Hub Tab 1: Trigger -->
+                        <div id="inner-tab-hub-trigger" class="inner-tab-panel active">
+                            <h3>Run Configurations</h3>
+                            <form id="trigger-run-form" class="form-grid">
+                                <div class="form-group full-width">
+                                    <label for="hub-ds-selector">Select Evaluation Dataset</label>
+                                    <select id="hub-ds-selector" required>
+                                        <option value="">Loading datasets...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="hub-prompt-selector">Select Prompt Template (Optional)</label>
+                                    <select id="hub-prompt-selector">
+                                        <option value="">None (Send raw questions directly)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Select LLM Model Providers Suite</label>
+                                    <div class="checkbox-tags-group">
+                                        <label class="checkbox-tag-label">
+                                            <input type="checkbox" name="hub-models" value="gpt-4o" checked>
+                                            <span class="checkbox-tag">gpt-4o</span>
+                                        </label>
+                                        <label class="checkbox-tag-label">
+                                            <input type="checkbox" name="hub-models" value="gpt-3.5-turbo">
+                                            <span class="checkbox-tag">gpt-3.5-turbo</span>
+                                        </label>
+                                        <label class="checkbox-tag-label">
+                                            <input type="checkbox" name="hub-models" value="claude-3-5-sonnet" checked>
+                                            <span class="checkbox-tag">claude-3-5-sonnet</span>
+                                        </label>
+                                        <label class="checkbox-tag-label">
+                                            <input type="checkbox" name="hub-models" value="claude-3-haiku">
+                                            <span class="checkbox-tag">claude-3-haiku</span>
+                                        </label>
+                                        <label class="checkbox-tag-label">
+                                            <input type="checkbox" name="hub-models" value="gemini-1.5-flash" checked>
+                                            <span class="checkbox-tag">gemini-1.5-flash</span>
+                                        </label>
+                                        <label class="checkbox-tag-label">
+                                            <input type="checkbox" name="hub-models" value="gemini-1.5-pro">
+                                            <span class="checkbox-tag">gemini-1.5-pro</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn primary-btn">Start Evaluation Suite</button>
+                            </form>
+
+                            <!-- Dynamic Status Tracker -->
+                            <div id="hub-run-status-container" class="hidden" style="margin-top: 30px;">
+                                <div class="card bg-accent-pine">
+                                    <h3>Execution Status</h3>
+                                    <p>Current Pipeline Run Status: <strong id="hub-run-status">PENDING</strong></p>
+                                    <div class="progress-bar-container">
+                                        <div id="hub-run-progress" class="progress-bar-fill" style="width: 0%;"></div>
+                                    </div>
+                                    <p id="hub-run-message" class="text-muted" style="margin-top: 10px;"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hub Tab 2: History -->
+                        <div id="inner-tab-hub-history" class="inner-tab-panel">
+                            <div class="card selector-card">
+                                <label for="hub-history-run-selector">Select Evaluation Run to Inspect</label>
+                                <select id="hub-history-run-selector" onchange="loadHistoryRunDetails()">
+                                    <option value="">Loading execution runs...</option>
+                                </select>
+                            </div>
+
+                            <div id="hub-history-details-container" class="hidden">
+                                <h3 id="inspect-run-heading">Run Metadata — Status: COMPLETED</h3>
+                                <p id="inspect-run-timestamp" class="text-muted">Created At: N/A</p>
+
+                                <div class="kpi-grid" style="margin-top: 20px;">
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Average Accuracy (1-5)</div>
+                                        <div id="inspect-kpi-accuracy" class="kpi-value">0.00</div>
+                                    </div>
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Hallucination Rate (%)</div>
+                                        <div id="inspect-kpi-hallucination" class="kpi-value">0.00%</div>
+                                    </div>
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Avg Latency (ms)</div>
+                                        <div id="inspect-kpi-latency" class="kpi-value">0 ms</div>
+                                    </div>
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Total Cost (USD)</div>
+                                        <div id="inspect-kpi-cost" class="kpi-value">$0.0000</div>
+                                    </div>
+                                </div>
+
+                                <h3 style="margin-top: 40px;">Granular Test Results</h3>
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>TestCase ID</th>
+                                                <th>Model</th>
+                                                <th>Question</th>
+                                                <th>Ground Truth</th>
+                                                <th>Model Output</th>
+                                                <th>Scores</th>
+                                                <th>Judge Explanation</th>
+                                                <th>Latency</th>
+                                                <th>Cost</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="inspect-run-results-table-body">
+                                            <tr>
+                                                <td colspan="9" class="text-center text-muted">No results found for this run.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. RCA Console Tab -->
+            <section id="rca" class="scroll-section">
+                <header class="tab-header">
+                    <h1>AI Agent Console</h1>
+                    <p class="tab-subtitle">Leverage intelligent agent reasoning to debug failures and generate adversarial test cases.</p>
+                </header>
+
+                <div class="inner-tabs-container">
+                    <div class="inner-tabs">
+                        <button class="inner-tab-btn active" onclick="switchInnerTab('rca-debugger', this)">Root Cause Analysis (RCA)</button>
+                        <button class="inner-tab-btn" onclick="switchInnerTab('rca-redteam', this)">AI Red Team Auditor</button>
+                    </div>
+
+                    <div class="inner-tab-content">
+                        <!-- RCA Tab 1: Debugger -->
+                        <div id="inner-tab-rca-debugger" class="inner-tab-panel active">
+                            <h3>Failure Debugger & Optimizer Agent</h3>
+                            <p>When prompts change or database schema updates occur, evaluation scores can degrade. Select a run to analyze failures.</p>
+                            
+                            <div class="card selector-card" style="margin-top: 20px;">
+                                <label for="rca-run-selector">Select Run to Analyze</label>
+                                <select id="rca-run-selector">
+                                    <option value="">Loading completed runs...</option>
+                                </select>
+                            </div>
+                            <button class="btn primary-btn" onclick="triggerRcaReport()">Generate Root Cause Report</button>
+
+                            <div id="rca-report-result" class="card bg-accent-pine hidden" style="margin-top: 30px;">
+                                <h3>Root Cause Analysis Report</h3>
+                                <div id="rca-report-markdown" class="markdown-body">
+                                    Report output...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RCA Tab 2: Red Team -->
+                        <div id="inner-tab-rca-redteam" class="inner-tab-panel">
+                            <h3>Adversarial Dataset Generator</h3>
+                            <p>Generate ambiguous variations, info-traps, and injection payloads to stresstest model robustness.</p>
+                            
+                            <div class="card selector-card" style="margin-top: 20px;">
+                                <label for="rca-seed-selector">Select Seed Dataset</label>
+                                <select id="rca-seed-selector">
+                                    <option value="">Loading seed datasets...</option>
+                                </select>
+                            </div>
+                            <button class="btn primary-btn" onclick="triggerRedTeamSuite()">Generate Adversarial Attacks</button>
+
+                            <div id="redteam-results-container" class="hidden" style="margin-top: 30px;">
+                                <div class="card bg-accent-pine" style="margin-bottom: 20px;">
+                                    <h3 class="success-heading">Adversarial Suite Created Successfully</h3>
+                                    <p>Saved as new Dataset: <strong id="redteam-dataset-details">Name (ID)</strong></p>
+                                </div>
+
+                                <h3>Generated Adversarial Test Cases</h3>
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Attack Type</th>
+                                                <th>Question</th>
+                                                <th>Expected Output (Ground Truth)</th>
+                                                <th>Original Question Reference</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="redteam-table-body">
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">No adversarial cases generated.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. Cost Analytics Tab -->
+            <section id="cost" class="scroll-section">
+                <header class="tab-header">
+                    <h1>Cost Optimizer & Analytics</h1>
+                    <p class="tab-subtitle">Analyze model spending, efficiency ratios, and get LLM routing recommendations.</p>
+                </header>
+
+                <div class="flex-row">
+                    <div class="card col-half">
+                        <h2>Cost per Query by Model</h2>
+                        <div id="cost-bar-chart" class="chart-container"></div>
+                    </div>
+                    <div class="card col-half">
+                        <h2>Accuracy-to-Cost Efficiency Ratio</h2>
+                        <p class="card-description">Calculated as (Accuracy Score / Cost in Millidollars). Higher means more value per dollar.</p>
+                        <div id="value-bar-chart" class="chart-container"></div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 30px;">
+                    <h2>Cost Optimizer Recommendations</h2>
+                    <div id="cost-recommendations-list">
+                        <div class="info-alert">Loading recommendation metrics...</div>
+                    </div>
+                </div>
+        </main>
+        <footer class="app-footer">
+            <div class="footer-content">
+                <span>LLMBench &copy; 2026. All rights reserved.</span>
+                <span>Designed &amp; Built by Jyotiraditya</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Product Guide Modal -->
+    <div id="guide-modal" class="modal-overlay hidden" onclick="closeProductGuideOnOverlay(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Product Guide &amp; How to Use</h2>
+                <button class="close-btn" onclick="closeProductGuide()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>Welcome to LLMBench</h3>
+                <p>LLMBench is a premium engineering dashboard for evaluating Large Language Models. Follow these simple steps to benchmark and audit prompts:</p>
+                
+                <ol>
+                    <li>
+                        <strong>Manage Datasets:</strong> 
+                        Go to the <em>Datasets</em> tab to create evaluation folders, batch import test cases, or inspect stored ground truths.
+                    </li>
+                    <li>
+                        <strong>Trigger Evaluations:</strong> 
+                        In the <em>Evaluation Hub</em>, select your target dataset and prompt version, select the model suites (e.g. GPT-4, Claude, Gemini), and start the execution queue. The pipeline runs asynchronously in Celery and will poll live metrics.
+                    </li>
+                    <li>
+                        <strong>Prompt Arena Benchmarking:</strong> 
+                        Navigate to the <em>Prompt Arena</em>, select your Prompt Template Group, and load your baseline (A) and comparison (B) prompt runs to view full, multi-dimensional accuracy, latency, and cost regression deltas.
+                    </li>
+                    <li>
+                        <strong>Failure Diagnostics:</strong> 
+                        Use the <em>Agent RCA</em> tab to aggregate failed evaluation outputs, allowing LLM reasoning agents to pinpoint failure modes and suggest prompt scaffolds.
+                    </li>
+                </ol>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary-btn" onclick="closeProductGuide()">Get Started</button>
             </div>
         </div>
     </div>
 
-    <div class="container">
-        <!-- Summary Section -->
-        <section id="summary" class="scroll-section">
-            <header>
-                <h1>LLMBench Report</h1>
-                <p class="subtitle">Evaluation Benchmark Run #2 Details</p>
-            </header>
-
-            <!-- KPI Summary Dashboard -->
-            <div class="kpi-grid">
-                <div class="kpi-card" onclick="handleKpiClick('accuracy')">
-                    <div class="kpi-label">Average Accuracy</div>
-                    <div class="kpi-value">4.0 / 5.0</div>
-                </div>
-                <div class="kpi-card" onclick="handleKpiClick('hallucination')">
-                    <div class="kpi-label">Hallucination Rate</div>
-                    <div class="kpi-value" style="color: var(--accent-green)">
-                        0.0%
-                    </div>
-                </div>
-                <div class="kpi-card" onclick="handleKpiClick('latency')">
-                    <div class="kpi-label">Average Latency</div>
-                    <div class="kpi-value">600.12 ms</div>
-                </div>
-                <div class="kpi-card" onclick="handleKpiClick('cost')">
-                    <div class="kpi-label">Total Execution Cost</div>
-                    <div class="kpi-value">$6.5e-05</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Main Info Section -->
-        <section id="charts" class="scroll-section">
-            <div class="section-grid">
-                <!-- Radar Dimensions Chart -->
-                <div class="card">
-                    <h2>Evaluation Metrics Radar Map</h2>
-                    <div id="radar-chart" class="chart-container"></div>
-                </div>
-
-                <!-- Run Metadata -->
-                <div class="card">
-                    <h2>Execution Info</h2>
-                    <ul class="metadata-list">
-                        <li>
-                            <span class="metadata-label">Dataset ID</span>
-                            <span class="metadata-value">1</span>
-                        </li>
-                        <li>
-                            <span class="metadata-label">Prompt ID</span>
-                            <span class="metadata-value">1</span>
-                        </li>
-                        <li>
-                            <span class="metadata-label">Run Status</span>
-                            <span class="metadata-value"><span class="badge badge-status-completed">COMPLETED</span></span>
-                        </li>
-                        <li>
-                            <span class="metadata-label">Evaluated Models</span>
-                            <span class="metadata-value">claude-3-haiku</span>
-                        </li>
-                        <li>
-                            <span class="metadata-label">Timestamp</span>
-                            <span class="metadata-value">2026-06-24 17:59:24 UTC</span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-
-        <!-- Granular Test Cases -->
-        <section id="results" class="scroll-section">
-            <div class="card table-card">
-                <h2>Detailed Test Results</h2>
-                
-                <!-- Dynamic Interactive Filters -->
-                <div class="search-filter-container">
-                    <input type="text" id="search-box" class="form-input" placeholder="Search test cases by prompt, output, or verdict..." onkeyup="filterTable()">
-                    <div class="filter-group">
-                        <span class="filter-label">Filter by Model:</span>
-                        <button class="filter-btn active" onclick="filterModel('all', this)">All Models</button>
-                        
-                        <button class="filter-btn" onclick="filterModel('claude-3-haiku', this)">claude-3-haiku</button>
-                        
-                    </div>
-                </div>
-
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th class="sortable" onclick="sortTable(0)">Model</th>
-                                <th class="sortable" onclick="sortTable(1)">Question</th>
-                                <th class="sortable" onclick="sortTable(2)">Ground Truth</th>
-                                <th class="sortable" onclick="sortTable(3)">Model Output</th>
-                                <th class="sortable" onclick="sortTable(4)">Scores</th>
-                                <th class="sortable" onclick="sortTable(5)">Judge Verdict</th>
-                            </tr>
-                        </thead>
-                        <tbody id="results-table-body">
-                            
-                            <tr data-model="claude-3-haiku">
-                                <td><strong>claude-3-haiku</strong></td>
-                                <td>What is the square root of 144?</td>
-                                <td>12</td>
-                                <td>[MOCK ANTHROPIC claude-3-haiku] Answer to: 'Answer the following question: What is t...'</td>
-                                <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
-                                </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
-                            </tr>
-                            
-                            <tr data-model="claude-3-haiku">
-                                <td><strong>claude-3-haiku</strong></td>
-                                <td>If a train travels at 60 mph, how far does it travel in 2.5 hours?</td>
-                                <td>150 miles</td>
-                                <td>[MOCK ANTHROPIC claude-3-haiku] Answer to: 'Answer the following question: If a trai...'</td>
-                                <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
-                                </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
-                            </tr>
-                            
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-    </div>
-
-    <!-- Inject Plotly Chart Script & Scroll Observer -->
-    <script>
-        // Load data injected from Python compiler
-        var trace = {
-            type: 'scatterpolar',
-            r: [
-                4.0,
-                4.0,
-                5.0,
-                4.5,
-                4.0
-            ],
-            theta: ['Accuracy', 'Completeness', 'Hallucination Resistance', 'Tone', 'Reasoning'],
-            fill: 'toself',
-            line: { color: '#98CBB0' },
-            fillcolor: 'rgba(152, 203, 176, 0.3)'
-        };
-
-        var layout = {
-            polar: {
-                radialaxis: { visible: true, range: [0, 5], color: '#98CBB0', gridcolor: 'rgba(46, 91, 65, 0.3)' },
-                angularaxis: { gridcolor: 'rgba(46, 91, 65, 0.3)', linecolor: '#98CBB0' },
-                bgcolor: 'rgba(20, 39, 24, 1)'
-            },
-            showlegend: false,
-            paper_bgcolor: 'rgba(20, 39, 24, 0)',
-            plot_bgcolor: 'rgba(20, 39, 24, 0)',
-            font: { color: '#E7EFE4', family: 'Inter, sans-serif' },
-            margin: { t: 30, b: 30, l: 30, r: 30 }
-        };
-
-        Plotly.newPlot('radar-chart', [trace], layout);
-
-        // --- Scroll Entrance Intersection Observer ---
-        document.addEventListener("DOMContentLoaded", function() {
-            const observerOptions = {
-                root: null,
-                rootMargin: "0px 0px -80px 0px",
-                threshold: 0.05
-            };
-
-            const observer = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add("visible");
-                        observer.unobserve(entry.target); // Animate once
-                    }
-                });
-            }, observerOptions);
-
-            document.querySelectorAll(".scroll-section").forEach(section => {
-                observer.observe(section);
-            });
-        });
-
-        // --- Interactive Search and Filtering ---
-        let activeModelFilter = 'all';
-
-        function filterTable() {
-            const searchQuery = document.getElementById("search-box").value.toLowerCase();
-            const tableRows = document.querySelectorAll("#results-table-body tr");
-
-            tableRows.forEach(row => {
-                const modelName = row.getAttribute("data-model");
-                const rowText = row.textContent.toLowerCase();
-                
-                const matchesSearch = rowText.includes(searchQuery);
-                const matchesModel = (activeModelFilter === 'all' || modelName === activeModelFilter);
-
-                if (matchesSearch && matchesModel) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
-            });
-        }
-
-        function filterModel(model, btn) {
-            // Update active button state
-            document.querySelectorAll(".filter-btn").forEach(el => el.classList.remove("active"));
-            btn.classList.add("active");
-
-            activeModelFilter = model;
-            filterTable();
-        }
-
-        // --- Interactive Column Sorting ---
-        let sortDirections = [true, true, true, true, true, true]; // true = ASC, false = DESC
-
-        function sortTable(colIndex) {
-            const tableBody = document.getElementById("results-table-body");
-            const rows = Array.from(tableBody.querySelectorAll("tr"));
-            const thElements = document.querySelectorAll("th.sortable");
-            
-            // Toggle direction
-            const ascending = sortDirections[colIndex];
-            sortDirections[colIndex] = !ascending;
-
-            // Reset headers styling
-            thElements.forEach(th => th.classList.remove("asc", "desc"));
-            thElements[colIndex].classList.add(ascending ? "asc" : "desc");
-
-            rows.sort((rowA, rowB) => {
-                let cellA = rowA.cells[colIndex].textContent.trim();
-                let cellB = rowB.cells[colIndex].textContent.trim();
-
-                // If sorting scores, try numeric comparison
-                if (colIndex === 4) {
-                    // Extract first score digit as comparison key
-                    const scoreA = parseFloat(cellA.match(/\d+(\.\d+)?/)) || 0;
-                    const scoreB = parseFloat(cellB.match(/\d+(\.\d+)?/)) || 0;
-                    return ascending ? scoreA - scoreB : scoreB - scoreA;
-                }
-
-                return ascending 
-                    ? cellA.localeCompare(cellB) 
-                    : cellB.localeCompare(cellA);
-            });
-
-            // Re-append sorted rows
-            rows.forEach(row => tableBody.appendChild(row));
-        }
-
-        // --- KPI Card Click Interactions ---
-        function handleKpiClick(metric) {
-            // Scroll smoothly to results section
-            document.getElementById("results").scrollIntoView({ behavior: 'smooth' });
-
-            if (metric === 'accuracy') {
-                // Sort table by score column (index 4)
-                sortTable(4);
-            } else if (metric === 'hallucination') {
-                // Filter to show only failed hallucination cases (score <= 3.0)
-                const tableRows = document.querySelectorAll("#results-table-body tr");
-                tableRows.forEach(row => {
-                    const scoresText = row.cells[4].textContent;
-                    const match = scoresText.match(/Hallucination:\s*(\d+(\.\d+)?)/);
-                    if (match) {
-                        const score = parseFloat(match[1]);
-                        if (score <= 3.0) {
-                            row.style.display = "";
-                        } else {
-                            row.style.display = "none";
-                        }
-                    }
-                });
-            } else {
-                // Reset search input and show all rows
-                document.getElementById("search-box").value = "";
-                activeModelFilter = 'all';
-                document.querySelectorAll(".filter-btn").forEach(el => el.classList.remove("active"));
-                const allBtn = document.querySelector("button[onclick*='all']");
-                if (allBtn) allBtn.classList.add("active");
-                filterTable();
-            }
-        }
-    </script>
+    <!-- Script Entry Point -->
+    <script src="app.js?v=1.0.1"></script>
 </body>
 </html>
