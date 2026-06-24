@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvalForge | Run #2 Evaluation Report</title>
+    <title>LLMBench | Run #1 Evaluation Report</title>
     <!-- Outfit Font & Plotly CDN -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.24.0.min.js"></script>
@@ -410,7 +410,7 @@
     <!-- Sticky Navigation Bar -->
     <div class="nav-bar">
         <div class="nav-container">
-            <span class="nav-logo">EvalForge</span>
+            <span class="nav-logo">LLMBench</span>
             <div class="nav-links">
                 <a href="#summary">Summary</a>
                 <a href="#charts">Metrics Chart</a>
@@ -423,15 +423,15 @@
         <!-- Summary Section -->
         <section id="summary" class="scroll-section">
             <header>
-                <h1>EvalForge Report</h1>
-                <p class="subtitle">Evaluation Benchmark Run #2 Details</p>
+                <h1>LLMBench Report</h1>
+                <p class="subtitle">Evaluation Benchmark Run #1 Details</p>
             </header>
 
             <!-- KPI Summary Dashboard -->
             <div class="kpi-grid">
                 <div class="kpi-card" onclick="handleKpiClick('accuracy')">
                     <div class="kpi-label">Average Accuracy</div>
-                    <div class="kpi-value">4.0 / 5.0</div>
+                    <div class="kpi-value">4.5 / 5.0</div>
                 </div>
                 <div class="kpi-card" onclick="handleKpiClick('hallucination')">
                     <div class="kpi-label">Hallucination Rate</div>
@@ -441,11 +441,11 @@
                 </div>
                 <div class="kpi-card" onclick="handleKpiClick('latency')">
                     <div class="kpi-label">Average Latency</div>
-                    <div class="kpi-value">501.15 ms</div>
+                    <div class="kpi-value">1240.0 ms</div>
                 </div>
                 <div class="kpi-card" onclick="handleKpiClick('cost')">
                     <div class="kpi-label">Total Execution Cost</div>
-                    <div class="kpi-value">$0.001368</div>
+                    <div class="kpi-value">$0.0012</div>
                 </div>
             </div>
         </section>
@@ -469,7 +469,7 @@
                         </li>
                         <li>
                             <span class="metadata-label">Prompt ID</span>
-                            <span class="metadata-value">None</span>
+                            <span class="metadata-value">1</span>
                         </li>
                         <li>
                             <span class="metadata-label">Run Status</span>
@@ -477,11 +477,11 @@
                         </li>
                         <li>
                             <span class="metadata-label">Evaluated Models</span>
-                            <span class="metadata-value">gpt-4o, gemini-1.5-flash, claude-3-5-sonnet</span>
+                            <span class="metadata-value">claude-3-haiku</span>
                         </li>
                         <li>
                             <span class="metadata-label">Timestamp</span>
-                            <span class="metadata-value">2026-06-23 16:30:29 UTC</span>
+                            <span class="metadata-value">2026-06-24 13:21:06 UTC</span>
                         </li>
                     </ul>
                 </div>
@@ -500,11 +500,7 @@
                         <span class="filter-label">Filter by Model:</span>
                         <button class="filter-btn active" onclick="filterModel('all', this)">All Models</button>
                         
-                        <button class="filter-btn" onclick="filterModel('gpt-4o', this)">gpt-4o</button>
-                        
-                        <button class="filter-btn" onclick="filterModel('gemini-1.5-flash', this)">gemini-1.5-flash</button>
-                        
-                        <button class="filter-btn" onclick="filterModel('claude-3-5-sonnet', this)">claude-3-5-sonnet</button>
+                        <button class="filter-btn" onclick="filterModel('claude-3-haiku', this)">claude-3-haiku</button>
                         
                     </div>
                 </div>
@@ -523,82 +519,30 @@
                         </thead>
                         <tbody id="results-table-body">
                             
-                            <tr data-model="gpt-4o">
-                                <td><strong>gpt-4o</strong></td>
+                            <tr data-model="claude-3-haiku">
+                                <td><strong>claude-3-haiku</strong></td>
                                 <td>What is the square root of 144?</td>
                                 <td>12</td>
-                                <td>[MOCK OPENAI gpt-4o] Answer to: 'What is the square root of 144?...'</td>
+                                <td>The square root of 144 is 12.</td>
                                 <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
+                                    Accuracy: <span class="score">5.0</span><br>
+                                    Completeness: <span class="score">5.0</span><br>
                                     Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
                                 </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
+                                <td><em>The output is exact and correct.</em></td>
                             </tr>
                             
-                            <tr data-model="claude-3-5-sonnet">
-                                <td><strong>claude-3-5-sonnet</strong></td>
-                                <td>What is the square root of 144?</td>
-                                <td>12</td>
-                                <td>[MOCK ANTHROPIC claude-3-5-sonnet] Answer to: 'What is the square root of 144?...'</td>
-                                <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
-                                </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
-                            </tr>
-                            
-                            <tr data-model="gemini-1.5-flash">
-                                <td><strong>gemini-1.5-flash</strong></td>
-                                <td>What is the square root of 144?</td>
-                                <td>12</td>
-                                <td>[MOCK GEMINI gemini-1.5-flash] Answer to: 'What is the square root of 144?...'</td>
-                                <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
-                                </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
-                            </tr>
-                            
-                            <tr data-model="gpt-4o">
-                                <td><strong>gpt-4o</strong></td>
+                            <tr data-model="claude-3-haiku">
+                                <td><strong>claude-3-haiku</strong></td>
                                 <td>If a train travels at 60 mph, how far does it travel in 2.5 hours?</td>
                                 <td>150 miles</td>
-                                <td>[MOCK OPENAI gpt-4o] Answer to: 'If a train travels at 60 mph, how far do...'</td>
+                                <td>It will travel 150 miles.</td>
                                 <td>
                                     Accuracy: <span class="score">4.0</span><br>
                                     Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
+                                    Hallucination: <span class="score" style="color: var(--text-main)">4.5</span>
                                 </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
-                            </tr>
-                            
-                            <tr data-model="claude-3-5-sonnet">
-                                <td><strong>claude-3-5-sonnet</strong></td>
-                                <td>If a train travels at 60 mph, how far does it travel in 2.5 hours?</td>
-                                <td>150 miles</td>
-                                <td>[MOCK ANTHROPIC claude-3-5-sonnet] Answer to: 'If a train travels at 60 mph, how far do...'</td>
-                                <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
-                                </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
-                            </tr>
-                            
-                            <tr data-model="gemini-1.5-flash">
-                                <td><strong>gemini-1.5-flash</strong></td>
-                                <td>If a train travels at 60 mph, how far does it travel in 2.5 hours?</td>
-                                <td>150 miles</td>
-                                <td>[MOCK GEMINI gemini-1.5-flash] Answer to: 'If a train travels at 60 mph, how far do...'</td>
-                                <td>
-                                    Accuracy: <span class="score">4.0</span><br>
-                                    Completeness: <span class="score">4.0</span><br>
-                                    Hallucination: <span class="score" style="color: var(--text-main)">5.0</span>
-                                </td>
-                                <td><em>Evaluation generated via local mock judge loop.</em></td>
+                                <td><em>Correct math, though could state units clearly.</em></td>
                             </tr>
                             
                         </tbody>
@@ -614,11 +558,11 @@
         var trace = {
             type: 'scatterpolar',
             r: [
-                4.0,
-                4.0,
-                5.0,
                 4.5,
-                4.0
+                4.2,
+                4.8,
+                4.0,
+                4.6
             ],
             theta: ['Accuracy', 'Completeness', 'Hallucination Resistance', 'Tone', 'Reasoning'],
             fill: 'toself',

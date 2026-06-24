@@ -26,17 +26,32 @@ jobs:
     - name: Install CI Runner Requirements
       run: |
         python -m pip install --upgrade pip
-        pip install requests sqlalchemy asyncpg jinja2
+        pip install requests -r backend/requirements.txt
 
-    - name: Spin up Docker Compose Environment
+    - name: Start Redis Server
       run: |
-        docker-compose up -d db redis web
-        # Give PostgreSQL and Uvicorn a few seconds to warm up and bind ports
-        sleep 10
+        sudo service redis-server start || true
+        sleep 1
 
-    - name: Seed Database
+    - name: Seed Database (SQLite)
+      env:
+        USE_SQLITE: "true"
       run: |
-        docker-compose exec -T web python -m backend.app.core.seed_db
+        PYTHONPATH=. python backend/app/core/seed_db.py
+
+    - name: Start FastAPI Backend in background
+      env:
+        USE_SQLITE: "true"
+      run: |
+        PYTHONPATH=. python -m uvicorn backend.app.main:app --port 8000 &
+        sleep 3
+
+    - name: Start Celery Worker in background
+      env:
+        USE_SQLITE: "true"
+      run: |
+        PYTHONPATH=. celery -A backend.app.core.celery_app worker --pool=solo --loglevel=info &
+        sleep 2
 
     - name: Run Quality Gate Regression Test
       env:
@@ -46,10 +61,13 @@ jobs:
         EVALFORGE_BASELINE_RUN_ID: 1
         EVALFORGE_PROMPT_ID: 1
         EVALFORGE_MODELS: claude-3-haiku
+        USE_SQLITE: "true"
       run: |
-        python backend/app/workers/quality_gate.py
+        PYTHONPATH=. python backend/app/workers/quality_gate.py
 
     - name: Compile Static HTML Report
+      env:
+        USE_SQLITE: "true"
       run: |
         PYTHONPATH=. python backend/app/workers/report_generator.py
 
