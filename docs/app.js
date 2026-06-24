@@ -3,7 +3,7 @@ const getApiBase = () => {
         return localStorage.getItem("LLMBENCH_BACKEND_URL");
     }
     if (window.location.hostname.includes("github.io")) {
-        return "https://jyotiraditya21-bug-llmbench.hf.space/api/v1";
+        return "https://jimmy2110-llmbench.hf.space/api/v1";
     }
     return "/api/v1";
 };
