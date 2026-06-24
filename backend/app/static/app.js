@@ -1,4 +1,14 @@
-const API_BASE = '/api/v1';
+const getApiBase = () => {
+    if (localStorage.getItem("LLMBENCH_BACKEND_URL")) {
+        return localStorage.getItem("LLMBENCH_BACKEND_URL");
+    }
+    if (window.location.hostname.includes("github.io")) {
+        return "https://jyotiraditya21-bug-llmbench.hf.space/api/v1";
+    }
+    return "/api/v1";
+};
+
+const API_BASE = getApiBase();
 const API_KEY = 'evalforge_admin_secret_key';
 const HEADERS = {
     'X-API-Key': API_KEY,
@@ -15,6 +25,7 @@ let activeTab = 'dashboard';
 document.addEventListener("DOMContentLoaded", () => {
     initNavigation();
     loadAllData();
+    initScrollReveal();
     
     // Bind forms
     document.getElementById("create-dataset-form").addEventListener("submit", handleCreateDataset);
@@ -1286,3 +1297,57 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+// --- Product Guide Modal Handlers ---
+function openProductGuide() {
+    document.getElementById("guide-modal").classList.remove("hidden");
+}
+
+function closeProductGuide() {
+    document.getElementById("guide-modal").classList.add("hidden");
+}
+
+function closeProductGuideOnOverlay(e) {
+    if (e.target === document.getElementById("guide-modal")) {
+        closeProductGuide();
+    }
+}
+
+// --- Scroll Reveal Animations ---
+function initScrollReveal() {
+    let revealQueue = [];
+    let revealTimeout = null;
+
+    function processQueue() {
+        if (revealQueue.length === 0) {
+            revealTimeout = null;
+            return;
+        }
+        const el = revealQueue.shift();
+        el.classList.add("reveal-active");
+        revealTimeout = setTimeout(processQueue, 80); // Stagger animations using timers (80ms delay)
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const target = entry.target;
+                if (!target.classList.contains("reveal-active") && !revealQueue.includes(target)) {
+                    revealQueue.push(target);
+                    observer.unobserve(target);
+                }
+            }
+        });
+
+        if (revealQueue.length > 0 && !revealTimeout) {
+            processQueue();
+        }
+    }, {
+        threshold: 0.05,
+        rootMargin: "0px 0px -40px 0px"
+    });
+
+    const targetElements = document.querySelectorAll(".card, .metric-card, .chart-container, .flex-row:not(.masthead), .kpi-card");
+    targetElements.forEach(el => observer.observe(el));
+}
+

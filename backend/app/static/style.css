@@ -27,6 +27,12 @@
 
 body {
     background-color: var(--bg-color);
+    /* Premium Blueprint Lines Grid in Dark Brown Checks (No Spotlight, No Dots) */
+    background-image: 
+        linear-gradient(rgba(46, 34, 30, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(46, 34, 30, 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    
     color: var(--text-main);
     font-family: var(--font-body);
     font-size: 1rem;
@@ -189,7 +195,7 @@ body::before {
     position: relative;
     z-index: 10;
     box-shadow: 0 10px 30px rgba(194, 125, 56, 0.06);
-    background-color: var(--bg-color);
+    background-color: transparent;
 }
 
 /* Main Content Area */
@@ -824,7 +830,7 @@ th.sortable.desc::after {
 }
 
 /* Responsive adjust for masthead */
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     .masthead {
         flex-direction: column;
         gap: 16px;
@@ -835,4 +841,198 @@ th.sortable.desc::after {
         width: 100%;
         flex-wrap: wrap;
     }
+    .top-actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-top: 8px;
+    }
 }
+
+/* Header Action Buttons */
+.top-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.top-btn {
+    font-family: var(--font-label);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+.github-btn {
+    background-color: transparent;
+    border: 1px solid var(--text-main);
+    color: var(--text-main);
+}
+.github-btn:hover {
+    background-color: rgba(46, 34, 30, 0.05);
+    transform: translateY(-1px);
+}
+.guide-btn {
+    background-color: var(--accent-pine);
+    border: 1px solid var(--accent-pine);
+    color: #FAF6F0;
+}
+.guide-btn:hover {
+    background-color: var(--accent-green);
+    border-color: var(--accent-green);
+    transform: translateY(-1px);
+}
+
+/* Scroll-Driven Reveal Pop-up Animations */
+.card, .metric-card, .chart-container, .flex-row:not(.masthead), .kpi-card {
+    opacity: 0;
+    transform: translateY(24px) scale(0.985);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), 
+                transform 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card.reveal-active, .metric-card.reveal-active, .chart-container.reveal-active, .flex-row:not(.masthead).reveal-active, .kpi-card.reveal-active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* Product Guide Modal Styling */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(46, 34, 30, 0.45);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+.modal-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+.modal-card {
+    background-color: #FAF6F0;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 20px 40px rgba(184, 115, 51, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalReveal {
+    from {
+        transform: translateY(30px) scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+.modal-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--sidebar-bg);
+}
+.modal-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--text-main);
+    text-shadow: var(--font-shadow-heading);
+}
+.modal-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    line-height: 1;
+}
+.modal-header .close-btn:hover {
+    color: var(--accent-pine);
+}
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    max-height: 70vh;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+.modal-body h3 {
+    margin-bottom: 12px;
+    color: var(--text-main);
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+}
+.modal-body ol {
+    margin-left: 20px;
+    margin-top: 12px;
+}
+.modal-body li {
+    margin-bottom: 12px;
+}
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    background-color: var(--sidebar-bg);
+}
+
+
+/* Grip handle formatting for modular card elements */
+.grip-handle {
+    display: grid;
+    grid-template-columns: repeat(3, 3px);
+    gap: 2px;
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
+}
+.grip-handle:hover {
+    opacity: 0.7;
+}
+.grip-handle span {
+    width: 3px;
+    height: 3px;
+    background-color: var(--text-main);
+    border-radius: 50%;
+}
+
+/* App Footer */
+.app-footer {
+    border-top: 1px solid var(--border-color);
+    padding: 24px 48px;
+    background-color: rgba(243, 236, 226, 0.4);
+    font-family: var(--font-label);
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.footer-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
