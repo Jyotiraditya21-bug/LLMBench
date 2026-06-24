@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files maintaining the 'backend.app' package structure
 COPY backend/app /workspace/backend/app
 COPY backend/start.sh /workspace/backend/start.sh
+COPY agents /workspace/agents
 
 # Make entrypoint script executable
 RUN chmod +x /workspace/backend/start.sh
