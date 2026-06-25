@@ -192,9 +192,9 @@ async function loadDashboardData() {
     try {
         // Fetch raw metrics from backend simultaneously
         const [datasets, prompts, runs] = await Promise.all([
-            fetchApi('/datasets'),
-            fetchApi('/prompts'),
-            fetchApi('/evaluations')
+            fetchApi('/datasets/'),
+            fetchApi('/prompts/'),
+            fetchApi('/evaluations/')
         ]);
 
         globalDatasets = datasets;
@@ -358,7 +358,7 @@ function getRandomColor(model) {
 // --- 2. Dataset Management Operations ---
 async function loadDatasetsList() {
     try {
-        const datasets = await fetchApi('/datasets');
+        const datasets = await fetchApi('/datasets/');
         globalDatasets = datasets;
         
         const selector = document.getElementById("ds-selector");
@@ -549,7 +549,7 @@ async function handleAddSingleTestCase(e) {
 // --- 3. Prompt Arena & Benchmark Operations ---
 async function loadArenaPrompts() {
     try {
-        const prompts = await fetchApi('/prompts');
+        const prompts = await fetchApi('/prompts/');
         globalPrompts = prompts;
         
         const groupSelector = document.getElementById("arena-group-selector");
@@ -650,7 +650,7 @@ function renderArenaComparison() {
 
 async function loadArenaRegressionRuns(basePromptId, compPromptId) {
     try {
-        const runs = await fetchApi('/evaluations');
+        const runs = await fetchApi('/evaluations/');
         const completedRuns = runs.filter(r => r.status === 'COMPLETED');
         
         const baseRunSelector = document.getElementById("arena-base-run-selector");
@@ -820,9 +820,9 @@ async function renderRegressionRadarPlot(findings, baseRunId, compRunId) {
 async function loadHubConfiguration() {
     try {
         const [datasets, prompts, runs] = await Promise.all([
-            fetchApi('/datasets'),
-            fetchApi('/prompts'),
-            fetchApi('/evaluations')
+            fetchApi('/datasets/'),
+            fetchApi('/prompts/'),
+            fetchApi('/evaluations/')
         ]);
 
         globalDatasets = datasets;
@@ -1001,8 +1001,8 @@ async function loadHistoryRunDetails() {
 async function loadRcaConfiguration() {
     try {
         const [runs, datasets] = await Promise.all([
-            fetchApi('/evaluations'),
-            fetchApi('/datasets')
+            fetchApi('/evaluations/'),
+            fetchApi('/datasets/')
         ]);
 
         const completedRuns = runs.filter(r => r.status === 'COMPLETED');
@@ -1114,7 +1114,7 @@ async function triggerRedTeamSuite() {
 // --- 6. Cost Analytics Operations ---
 async function loadCostAnalytics() {
     try {
-        const runs = await fetchApi('/evaluations');
+        const runs = await fetchApi('/evaluations/');
         const completedRuns = runs.filter(r => r.status === 'COMPLETED');
 
         // Accumulate models cost/value stats
