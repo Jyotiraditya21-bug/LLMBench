@@ -500,7 +500,7 @@
                         <span class="filter-label">Filter by Model:</span>
                         <button class="filter-btn active" onclick="filterModel('all', this)">All Models</button>
                         {% for model in models %}
-                        <button class="filter-btn" onclick="filterModel('{{ model }}', this)">{{ model }}</button>
+                        <button class="filter-btn" data-model="{{ model }}" onclick="filterModel(this.dataset.model, this)">{{ model }}</button>
                         {% endfor %}
                     </div>
                 </div>

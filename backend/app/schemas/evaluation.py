@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field, field_validator
 
 from backend.app.schemas.dataset import TestCase
 from backend.app.schemas.prompt import Prompt
@@ -68,6 +68,27 @@ class EvaluationRun(EvaluationRunBase):
 # --- Trigger & Arena Requests ---
 
 class EvaluationTriggerRequest(BaseModel):
-    dataset_id: int = Field(..., description="ID of the dataset to evaluate against")
-    prompt_id: Optional[int] = Field(None, description="Optional ID of prompt template. If blank, raw test cases are fed directly.")
-    models: List[str] = Field(..., description="List of target LLM model names to evaluate (e.g. ['gpt-4o', 'claude-3-5-sonnet', 'gemini-1.5-flash'])")
+    dataset_id: int = Field(..., gt=0, description="ID of the dataset to evaluate against")
+    prompt_id: Optional[int] = Field(None, gt=0, description="Optional ID of prompt template. If blank, raw test cases are fed directly.")
+    models: List[
+        Literal[
+            "gpt-4o",
+            "gpt-3.5-turbo",
+            "claude-3-5-sonnet",
+            "claude-3-haiku",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+    ] = Field(
+        ...,
+        min_length=1,
+        max_length=6,
+        description="Unique supported target models to evaluate",
+    )
+
+    @field_validator("models")
+    @classmethod
+    def models_must_be_unique(cls, models: List[str]) -> List[str]:
+        if len(models) != len(set(models)):
+            raise ValueError("models must not contain duplicates")
+        return models

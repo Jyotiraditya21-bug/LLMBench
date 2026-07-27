@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
@@ -29,8 +29,8 @@ async def create_prompt(
 
 @router.get("/", response_model=List[schema_prompt.Prompt])
 async def list_prompts(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists registered prompt templates."""

@@ -67,3 +67,10 @@ async def test_unauthorized_access() -> None:
         response = await autoless_client.get("/api/v1/datasets/")
         assert response.status_code == 403
         assert "credentials missing" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_list_datasets_rejects_unsafe_page_size(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/datasets/?limit=101")
+
+    assert response.status_code == 422

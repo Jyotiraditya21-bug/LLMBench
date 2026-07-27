@@ -1,9 +1,12 @@
 import asyncio
+import os
 import pytest
 from typing import AsyncGenerator, Generator
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from unittest.mock import AsyncMock, MagicMock
+
+os.environ.setdefault("EVALFORGE_API_KEY", "test-only-api-key")
 
 from backend.app.main import app
 from backend.app.core.database import get_db

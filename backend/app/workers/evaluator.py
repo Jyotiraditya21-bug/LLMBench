@@ -6,8 +6,36 @@ from typing import Any, Dict, Optional
 import anthropic
 import google.generativeai as genai
 import openai
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.core.config import settings
+
+
+class ProviderConfigurationError(RuntimeError):
+    """Raised when a requested provider cannot run in real evaluation mode."""
+
+
+class JudgeEvaluationError(RuntimeError):
+    """Raised when no judge can produce a valid real evaluation."""
+
+
+class JudgeScores(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    accuracy: float = Field(ge=1.0, le=5.0, allow_inf_nan=False)
+    completeness: float = Field(ge=1.0, le=5.0, allow_inf_nan=False)
+    hallucination: float = Field(ge=1.0, le=5.0, allow_inf_nan=False)
+    tone: float = Field(ge=1.0, le=5.0, allow_inf_nan=False)
+    reasoning: float = Field(ge=1.0, le=5.0, allow_inf_nan=False)
+    reason: str = Field(min_length=1, max_length=4_000)
+
+
+def _require_real_provider(provider: str, model: str) -> None:
+    if not settings.DEMO_MODE:
+        raise ProviderConfigurationError(
+            f"{provider} is not configured for model '{model}'. "
+            "Configure its API key or explicitly enable DEMO_MODE."
+        )
 
 # --- Pricing Configurations (Cost per 1M tokens) ---
 MODEL_PRICING = {
@@ -50,7 +78,7 @@ async def call_target_llm(
     # --- Case 1: OpenAI Models ---
     if model_lower.startswith("gpt-"):
         if not settings.OPENAI_API_KEY:
-            # Fallback mock response for sandbox safety
+            _require_real_provider("OpenAI", model)
             time.sleep(0.5)
             output = f"[MOCK OPENAI {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
@@ -74,6 +102,7 @@ async def call_target_llm(
     # --- Case 2: Anthropic Models ---
     elif model_lower.startswith("claude-"):
         if not settings.ANTHROPIC_API_KEY or not settings.HAS_ANTHROPIC:
+            _require_real_provider("Anthropic", model)
             time.sleep(0.6)
             output = f"[MOCK ANTHROPIC {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
@@ -96,6 +125,7 @@ async def call_target_llm(
     # --- Case 3: Google Gemini Models ---
     elif model_lower.startswith("gemini-"):
         if not settings.GEMINI_API_KEY:
+            _require_real_provider("Gemini", model)
             time.sleep(0.4)
             output = f"[MOCK GEMINI {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
@@ -118,6 +148,7 @@ async def call_target_llm(
 
     # --- Case 4: Default Fallback (Mock) ---
     else:
+        _require_real_provider("Requested model provider", model)
         time.sleep(0.3)
         output = f"[MOCK {model}] Response for: '{prompt_text[:40]}...'"
         prompt_tokens = len(prompt_text) // 4
@@ -132,6 +163,15 @@ async def call_target_llm(
         "completion_tokens": completion_tokens,
         "cost": cost,
         "latency_ms": latency_ms,
+        "is_mock": not (
+            (model_lower.startswith("gpt-") and settings.OPENAI_API_KEY)
+            or (
+                model_lower.startswith("claude-")
+                and settings.ANTHROPIC_API_KEY
+                and settings.HAS_ANTHROPIC
+            )
+            or (model_lower.startswith("gemini-") and settings.GEMINI_API_KEY)
+        ),
     }
 
 
@@ -189,6 +229,7 @@ async def evaluate_with_judge(
 
     # Choose available API key for the Judge
     raw_text = None
+    judge_errors = []
     if settings.ANTHROPIC_API_KEY and settings.HAS_ANTHROPIC:
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
@@ -199,8 +240,8 @@ async def evaluate_with_judge(
                 temperature=0.0,  # Zero temperature for deterministic evaluations
             )
             raw_text = "".join([block.text for block in response.content if hasattr(block, 'text')]).strip()
-        except Exception:
-            pass
+        except Exception as exc:
+            judge_errors.append(f"Anthropic: {exc}")
 
     if not raw_text and settings.OPENAI_API_KEY:
         try:
@@ -212,8 +253,8 @@ async def evaluate_with_judge(
                 temperature=0.0,
             )
             raw_text = response.choices[0].message.content or ""
-        except Exception:
-            pass
+        except Exception as exc:
+            judge_errors.append(f"OpenAI: {exc}")
 
     if not raw_text and settings.GEMINI_API_KEY:
         try:
@@ -224,15 +265,21 @@ async def evaluate_with_judge(
                 generation_config={"temperature": 0.0, "response_mime_type": "application/json"}
             )
             raw_text = response.text
-        except Exception:
-            pass
+        except Exception as exc:
+            judge_errors.append(f"Gemini: {exc}")
 
     if not raw_text:
-        # Fallback mock judge evaluation if no APIs worked or are configured
+        if not settings.DEMO_MODE:
+            detail = "; ".join(judge_errors) or "No judge provider is configured"
+            raise JudgeEvaluationError(
+                f"Real evaluation requires a working judge provider. {detail}"
+            )
+
         time.sleep(0.5)
         if len(model_output) < len(ground_truth) // 2:
             default_result["completeness"] = 2.0
             default_result["reason"] = "Mock Judge: Answer appears significantly shorter than expected ground truth."
+        default_result["is_mock"] = True
         return default_result
 
     try:
@@ -240,17 +287,13 @@ async def evaluate_with_judge(
         raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
         raw_text = re.sub(r"\s*```$", "", raw_text)
 
-        parsed_json = json.loads(raw_text)
-        
-        # Verify required keys exist
-        required_keys = ["accuracy", "completeness", "hallucination", "tone", "reasoning", "reason"]
-        for key in required_keys:
-            if key not in parsed_json:
-                parsed_json[key] = default_result[key]
-                
+        parsed_json = JudgeScores.model_validate_json(raw_text).model_dump()
+        parsed_json["is_mock"] = False
         return parsed_json
 
     except Exception as e:
-        # Graceful degradation on JSON parsing or API faults
-        default_result["reason"] = f"Failed to parse Judge output. Error: {str(e)}"
+        if not settings.DEMO_MODE:
+            raise JudgeEvaluationError(f"Failed to parse judge output: {e}") from e
+        default_result["reason"] = f"Demo judge used after parsing failed: {e}"
+        default_result["is_mock"] = True
         return default_result

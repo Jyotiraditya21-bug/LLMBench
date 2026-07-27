@@ -1,8 +1,12 @@
+import os
 import time
 import requests
 
 BASE_URL = "http://localhost:8000/api/v1"
-HEADERS = {"X-API-Key": "evalforge_admin_secret_key"}
+API_KEY = os.getenv("EVALFORGE_API_KEY")
+if not API_KEY:
+    raise RuntimeError("EVALFORGE_API_KEY must be set before seeding demo data")
+HEADERS = {"X-API-Key": API_KEY}
 
 def run_seeding():
     print("Starting full-fledged enterprise demo data seeding on localhost:8000...")
@@ -170,7 +174,8 @@ def run_seeding():
         
         print(f"Run A: {status_a} | Run B: {status_b}")
         
-        if status_a in ["COMPLETED", "FAILED"] and status_b in ["COMPLETED", "FAILED"]:
+        terminal_statuses = ["COMPLETED", "DEMO_COMPLETED", "FAILED"]
+        if status_a in terminal_statuses and status_b in terminal_statuses:
             break
             
         time.sleep(2)

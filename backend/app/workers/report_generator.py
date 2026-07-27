@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -49,7 +49,10 @@ async def compile_report(run_id: int) -> str:
         # 4. Set paths for Jinja loader
         # Resolves template relative to workspace/backend/app/templates
         template_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
-        env = Environment(loader=FileSystemLoader(template_dir))
+        env = Environment(
+            loader=FileSystemLoader(template_dir),
+            autoescape=select_autoescape(enabled_extensions=("html", "xml"), default_for_string=True),
+        )
         template = env.get_template("report.html")
 
         # 5. Render template

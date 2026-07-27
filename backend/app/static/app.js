@@ -9,11 +9,18 @@ const getApiBase = () => {
 };
 
 const API_BASE = getApiBase();
-const API_KEY = 'evalforge_admin_secret_key';
-const HEADERS = {
-    'X-API-Key': API_KEY,
-    'Content-Type': 'application/json'
-};
+const API_KEY_SESSION_KEY = "LLMBENCH_API_KEY";
+
+function ensureApiKey() {
+    const currentKey = sessionStorage.getItem(API_KEY_SESSION_KEY);
+    if (currentKey) return true;
+
+    const enteredKey = window.prompt("Enter your LLMBench API key for this browser session:");
+    if (!enteredKey || !enteredKey.trim()) return false;
+
+    sessionStorage.setItem(API_KEY_SESSION_KEY, enteredKey.trim());
+    return true;
+}
 
 // Global Store State
 let globalRuns = [];
@@ -24,8 +31,13 @@ let activeTab = 'dashboard';
 // --- Lifecycle Event Handlers ---
 document.addEventListener("DOMContentLoaded", () => {
     initNavigation();
-    loadAllData();
     initScrollReveal();
+
+    if (ensureApiKey()) {
+        loadAllData();
+    } else {
+        alert("An API key is required to load and manage LLMBench data.");
+    }
     
     // Bind forms
     document.getElementById("create-dataset-form").addEventListener("submit", handleCreateDataset);
@@ -172,10 +184,22 @@ function toggleExpander(expanderId) {
 // --- API Helpers ---
 async function fetchApi(endpoint, options = {}) {
     try {
+        const apiKey = sessionStorage.getItem(API_KEY_SESSION_KEY);
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+        if (apiKey) {
+            headers['X-API-Key'] = apiKey;
+        }
+
         const response = await fetch(`${API_BASE}${endpoint}`, {
-            headers: HEADERS,
-            ...options
+            ...options,
+            headers
         });
+        if (response.status === 401 || response.status === 403) {
+            sessionStorage.removeItem(API_KEY_SESSION_KEY);
+        }
         if (!response.ok) {
             const errText = await response.text();
             throw new Error(errText || response.statusText);
@@ -244,7 +268,7 @@ function populateRecentRunsTable(runs) {
             <td><strong>${run.id}</strong></td>
             <td>${run.dataset_id}</td>
             <td>${run.prompt_id || 'None'}</td>
-            <td><span class="badge badge-status-completed">${run.status}</span></td>
+            <td><span class="badge badge-status-completed">${escapeHtml(run.status)}</span></td>
             <td><span class="score">${accStr}</span></td>
             <td style="color: ${run.metrics?.hallucination_rate > 0 ? 'var(--accent-red)' : 'inherit'}">${hallStr}</td>
             <td>${costStr}</td>
@@ -443,7 +467,7 @@ async function loadTestCasesList(dsId) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td><strong>${tc.id}</strong></td>
-                <td><span class="badge badge-status-completed">${tc.category}</span></td>
+                <td><span class="badge badge-status-completed">${escapeHtml(tc.category)}</span></td>
                 <td>${escapeHtml(tc.question)}</td>
                 <td>${escapeHtml(tc.ground_truth)}</td>
                 <td><button class="btn danger-btn" style="padding:6px 12px; font-size:0.8rem;" onclick="directDeleteTestCase(${dsId}, ${tc.id})">Delete</button></td>
@@ -920,11 +944,16 @@ async function handleTriggerEvaluation(e) {
                     clearInterval(pollingInterval);
                     fillEl.style.width = "100%";
                     msgEl.innerHTML = `<span style="color:var(--accent-green)">Pipeline evaluation complete! Click 'Historical Execution Logs' to inspect outputs.</span>`;
+                } else if (polledRun.status === 'DEMO_COMPLETED') {
+                    clearInterval(pollingInterval);
+                    fillEl.style.width = "100%";
+                    fillEl.style.backgroundColor = "var(--accent-yellow)";
+                    msgEl.textContent = "Demo evaluation complete. Mock data is labeled and excluded from production analytics.";
                 } else if (polledRun.status === 'FAILED') {
                     clearInterval(pollingInterval);
                     fillEl.style.width = "100%";
                     fillEl.style.backgroundColor = "var(--accent-red)";
-                    msgEl.innerHTML = `<span style="color:var(--accent-red)">Run failed: ${polledRun.metrics?.error || 'Unknown executor error.'}</span>`;
+                    msgEl.innerHTML = `<span style="color:var(--accent-red)">Run failed: ${escapeHtml(polledRun.metrics?.error || 'Unknown executor error.')}</span>`;
                 } else {
                     progressPercent = Math.min(progressPercent + 10, 95);
                     fillEl.style.width = `${progressPercent}%`;
@@ -976,7 +1005,7 @@ async function loadHistoryRunDetails() {
             const tc = res.test_case || {};
             tr.innerHTML = `
                 <td><strong>${res.test_case_id}</strong></td>
-                <td><strong>${res.model_name}</strong></td>
+                <td><strong>${escapeHtml(res.model_name)}</strong></td>
                 <td>${escapeHtml(tc.question || 'N/A')}</td>
                 <td>${escapeHtml(tc.ground_truth || 'N/A')}</td>
                 <td>${escapeHtml(res.raw_output)}</td>
@@ -1059,7 +1088,7 @@ async function triggerRcaReport() {
         // Render simple markdown response
         outputMarkdown.textContent = res.report || "No response received from agent.";
     } catch (err) {
-        outputMarkdown.innerHTML = `<span style="color:var(--accent-red)">Agent RCA pipeline execution failed. Details: ${err.message}</span>`;
+        outputMarkdown.innerHTML = `<span style="color:var(--accent-red)">Agent RCA pipeline execution failed. Details: ${escapeHtml(err.message)}</span>`;
     }
 }
 
@@ -1098,7 +1127,7 @@ async function triggerRedTeamSuite() {
             const attackType = c.meta_data?.type || 'N/A';
             const originalQ = c.meta_data?.original_question || 'N/A';
             tr.innerHTML = `
-                <td><span class="badge badge-status-completed" style="background-color:rgba(244, 63, 94, 0.15); color:var(--accent-red); border-color:rgba(244,63,94,0.3)">${attackType}</span></td>
+                <td><span class="badge badge-status-completed" style="background-color:rgba(244, 63, 94, 0.15); color:var(--accent-red); border-color:rgba(244,63,94,0.3)">${escapeHtml(attackType)}</span></td>
                 <td>${escapeHtml(c.question)}</td>
                 <td>${escapeHtml(c.ground_truth)}</td>
                 <td class="text-muted">${escapeHtml(originalQ)}</td>
@@ -1107,7 +1136,7 @@ async function triggerRedTeamSuite() {
         });
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--accent-red)">Red Teaming generation failed: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--accent-red)">Red Teaming generation failed: ${escapeHtml(err.message)}</td></tr>`;
     }
 }
 
@@ -1350,4 +1379,3 @@ function initScrollReveal() {
     const targetElements = document.querySelectorAll(".card, .metric-card, .chart-container, .flex-row:not(.masthead), .kpi-card");
     targetElements.forEach(el => observer.observe(el));
 }
-

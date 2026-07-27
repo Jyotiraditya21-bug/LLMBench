@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from backend.app.workers.evaluator import evaluate_with_judge
+from backend.app.workers.evaluator import JudgeEvaluationError, evaluate_with_judge
 
 
 @pytest.mark.asyncio
@@ -45,6 +45,7 @@ async def test_judge_evaluation_success() -> None:
             assert result["accuracy"] == 5.0
             assert result["hallucination"] == 5.0
             assert result["reason"] == "Perfect match with ground truth."
+            assert result["is_mock"] is False
 
 
 @pytest.mark.asyncio
@@ -85,3 +86,60 @@ async def test_judge_evaluation_markdown_cleaning() -> None:
             assert result["accuracy"] == 4.0
             assert result["completeness"] == 3.0
             assert "slightly incomplete" in result["reason"]
+            assert result["is_mock"] is False
+
+
+@pytest.mark.asyncio
+async def test_judge_fails_without_provider_in_real_mode() -> None:
+    with patch("backend.app.workers.evaluator.settings") as mock_settings:
+        mock_settings.ANTHROPIC_API_KEY = None
+        mock_settings.OPENAI_API_KEY = None
+        mock_settings.GEMINI_API_KEY = None
+        mock_settings.DEMO_MODE = False
+
+        with pytest.raises(JudgeEvaluationError, match="working judge provider"):
+            await evaluate_with_judge("Question", "Expected", "Output")
+
+
+@pytest.mark.asyncio
+async def test_judge_labels_mock_result_in_explicit_demo_mode() -> None:
+    with patch("backend.app.workers.evaluator.settings") as mock_settings:
+        mock_settings.ANTHROPIC_API_KEY = None
+        mock_settings.OPENAI_API_KEY = None
+        mock_settings.GEMINI_API_KEY = None
+        mock_settings.DEMO_MODE = True
+
+        result = await evaluate_with_judge("Question", "Expected", "Output")
+
+        assert result["is_mock"] is True
+
+
+@pytest.mark.asyncio
+async def test_judge_rejects_out_of_range_scores_in_real_mode() -> None:
+    invalid_response = """
+    {
+      "accuracy": 9,
+      "completeness": 5,
+      "hallucination": 5,
+      "tone": 5,
+      "reasoning": 5,
+      "reason": "Invalid accuracy score."
+    }
+    """
+
+    with patch("backend.app.workers.evaluator.settings") as mock_settings:
+        mock_settings.ANTHROPIC_API_KEY = "test-key"
+        mock_settings.HAS_ANTHROPIC = True
+        mock_settings.DEMO_MODE = False
+
+        with patch("backend.app.workers.evaluator.anthropic.AsyncAnthropic") as client_class:
+            client = AsyncMock()
+            message = AsyncMock()
+            content = AsyncMock()
+            content.text = invalid_response
+            message.content = [content]
+            client.messages.create.return_value = message
+            client_class.return_value = client
+
+            with pytest.raises(JudgeEvaluationError, match="Failed to parse judge output"):
+                await evaluate_with_judge("Question", "Expected", "Output")

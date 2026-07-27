@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # API Security
     API_KEY_NAME: str = "X-API-Key"
-    EVALFORGE_API_KEY: str = "evalforge_admin_secret_key"  # Default fallback for local testing
+    EVALFORGE_API_KEY: Optional[str] = None
 
     # Database
     POSTGRES_SERVER: str = "localhost"
@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     HAS_ANTHROPIC: bool = HAS_ANTHROPIC
+    DEMO_MODE: bool = False
 
     # Observability (Optional integrations)
     LANGCHAIN_TRACING_V2: bool = False

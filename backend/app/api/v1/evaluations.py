@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,8 +66,8 @@ async def trigger_evaluation(
 
 @router.get("/", response_model=List[schema_eval.EvaluationRun])
 async def list_evaluation_runs(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists recent evaluation runs."""
@@ -105,6 +105,12 @@ async def compare_evaluation_runs(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="One or both of the target evaluation runs not found",
+        )
+
+    if baseline.status != "COMPLETED" or comparison.status != "COMPLETED":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Regression reports require two completed real evaluation runs; demo, pending, running, and failed runs are not eligible",
         )
 
     # 2. Check if comparison exists
