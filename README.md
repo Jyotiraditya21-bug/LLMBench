@@ -14,7 +14,7 @@ LLMBench is a production-grade AI quality engineering platform designed to bench
 * **Automated Failure Diagnostics (Root Cause Agent):** Aggregates failed evaluation results and uses Claude 3.5 Sonnet to synthesize failure modes and suggest prompt scaffold corrections.
 * **AI Red Team Auditor:** Analyzes target datasets to generate adversarial prompt injections, safety bypass vectors, and outdated information traps, helping test LLM robustness.
 * **Cost-to-Quality Optimization:** Analyzes accuracy-to-cost efficiency frontiers and provides automated recommendations for routing queries to cheaper models (e.g. Gemini Flash) when thresholds are met.
-* **CI/CD Quality Gate:** A GitHub Actions workflow runs evaluation checks on push to main, fails the build on quality regression, compiles interactive HTML dashboards, and deploys reports serverless to GitHub Pages.
+* **CI Verification:** GitHub Actions runs the automated test suite on pushes and pull requests. A live LLM quality gate will be restored in Version 2 after persistent real baselines are implemented.
 
 ---
 
@@ -64,6 +64,21 @@ The following diagram illustrates the flow of test cases and evaluations through
 ## Local Setup
 
 Follow these steps to run the complete platform services locally:
+
+Create a strong API key before starting any service. The application has no
+built-in default credential:
+
+```bash
+export EVALFORGE_API_KEY="$(openssl rand -hex 32)"
+```
+
+Enter this value when the dashboard asks for the API key. It is kept only in
+the current browser session.
+
+Real evaluation mode never substitutes fake results when a provider is missing
+or fails. For UI demonstrations without provider credentials, explicitly set
+`DEMO_MODE=true`. Demo runs are labeled `DEMO_COMPLETED` and are excluded from
+production regression, cost, and quality-gate results.
 
 ### 1. Launch Services via Docker Compose
 Initialize the PostgreSQL, Redis, Celery, and FastAPI application containers:

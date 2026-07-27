@@ -1,108 +1,36 @@
-name: AI Quality Gate
+name: Version 2 Verification
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  quality-gate:
-    name: Run LLM Regression Suite
+  tests:
+    name: Run automated tests
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-
-    services:
-      redis:
-        image: redis:alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
-    - name: Checkout Repository Code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    - name: Install CI Runner Requirements
-      run: |
-        python -m pip install --upgrade pip
-        pip install requests -r backend/requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
 
-    - name: Seed Database (SQLite)
-      env:
-        USE_SQLITE: "true"
-      run: |
-        PYTHONPATH=. python backend/app/core/seed_db.py
-
-    - name: Start FastAPI Backend in background
-      env:
-        USE_SQLITE: "true"
-      run: |
-        PYTHONPATH=. python -m uvicorn backend.app.main:app --port 8000 &
-
-    - name: Wait for FastAPI Backend to be healthy
-      run: |
-        echo "Waiting for FastAPI backend to start..."
-        for i in {1..30}; do
-          if curl -s http://localhost:8000/health; then
-            echo "FastAPI backend is healthy!"
-            exit 0
-          fi
-          sleep 1
-        done
-        echo "Error: FastAPI backend failed to start."
-        exit 1
-
-    - name: Start Celery Worker in background
-      env:
-        USE_SQLITE: "true"
-      run: |
-        PYTHONPATH=. celery -A backend.app.core.celery_app worker --pool=solo --loglevel=info &
-
-    - name: Wait for Celery Worker to be ready
-      run: |
-        echo "Waiting for Celery worker to start..."
-        for i in {1..30}; do
-          if celery -A backend.app.core.celery_app inspect ping; then
-            echo "Celery worker is ready!"
-            exit 0
-          fi
-          sleep 1
-        done
-        echo "Error: Celery worker failed to start."
-        exit 1
-
-    - name: Run Quality Gate Regression Test
-      env:
-        EVALFORGE_BACKEND_URL: http://localhost:8000/api/v1
-        EVALFORGE_API_KEY: evalforge_admin_secret_key
-        EVALFORGE_DATASET_ID: 1
-        EVALFORGE_BASELINE_RUN_ID: 1
-        EVALFORGE_PROMPT_ID: 1
-        EVALFORGE_MODELS: claude-3-haiku
-        USE_SQLITE: "true"
-      run: |
-        PYTHONPATH=. python backend/app/workers/quality_gate.py
-
-    - name: Compile Static HTML Report
-      env:
-        USE_SQLITE: "true"
-      run: |
-        PYTHONPATH=. python backend/app/workers/report_generator.py
-
-    - name: Deploy static report to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs
+      - name: Run test suite
+        env:
+          EVALFORGE_API_KEY: ci-test-only-key
+          USE_SQLITE: "true"
+        run: |
+          PYTHONPATH=. pytest -q

@@ -56,7 +56,7 @@ async def seed():
         run = EvaluationRun(
             dataset_id=ds.id,
             prompt_id=p.id,
-            status="COMPLETED",
+            status="DEMO_COMPLETED",
             metrics={
                 "total_results": 2,
                 "total_cost": 0.0012,
@@ -66,7 +66,9 @@ async def seed():
                 "average_hallucination": 4.8,
                 "average_tone": 4.0,
                 "average_reasoning": 4.6,
-                "hallucination_rate": 0.0
+                "hallucination_rate": 0.0,
+                "evaluation_mode": "DEMO",
+                "contains_mock_data": True,
             }
         )
         db.add(run)

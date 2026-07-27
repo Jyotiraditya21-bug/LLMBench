@@ -110,3 +110,60 @@ async def test_compare_runs_not_found(client: AsyncClient, mock_db: AsyncMock) -
         
         assert response.status_code == 404
         assert "runs not found" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_compare_rejects_demo_run(client: AsyncClient, mock_db: AsyncMock) -> None:
+    """Demo data must never be accepted as a production regression baseline."""
+    now = datetime.now(timezone.utc)
+    baseline = EvaluationRun(
+        id=1,
+        dataset_id=1,
+        status="DEMO_COMPLETED",
+        metrics={"evaluation_mode": "DEMO"},
+        created_at=now,
+        updated_at=now,
+    )
+    comparison = EvaluationRun(
+        id=2,
+        dataset_id=1,
+        status="COMPLETED",
+        metrics={"evaluation_mode": "REAL"},
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "backend.app.api.v1.evaluations.crud_eval.evaluation_run.get",
+        new_callable=AsyncMock,
+    ) as mock_get_run:
+        mock_get_run.side_effect = [baseline, comparison]
+
+        response = await client.post(
+            "/api/v1/evaluations/compare",
+            json={"baseline_run_id": 1, "comparison_run_id": 2},
+        )
+
+    assert response.status_code == 409
+    assert "completed real evaluation runs" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "models",
+    [
+        [],
+        ["unsupported-model"],
+        ["gpt-4o", "gpt-4o"],
+    ],
+)
+async def test_trigger_rejects_invalid_model_selection(
+    client: AsyncClient,
+    models: list[str],
+) -> None:
+    response = await client.post(
+        "/api/v1/evaluations/trigger",
+        json={"dataset_id": 1, "models": models},
+    )
+
+    assert response.status_code == 422

@@ -4,11 +4,11 @@ from pydantic import BaseModel, Field
 
 
 class PromptBase(BaseModel):
-    name: str = Field(..., description="Unique name identify the prompt template")
-    version: str = Field(..., description="Prompt version indicator (e.g. V1, V2)")
-    system_prompt: Optional[str] = Field(None, description="System instructions context")
-    user_template: str = Field(..., description="User prompt template text, supports double-curly brackets placeholders")
-    description: Optional[str] = Field(None, description="Optional notes or changelog comment")
+    name: str = Field(..., min_length=1, max_length=255, description="Unique prompt template name")
+    version: str = Field(..., min_length=1, max_length=50, description="Prompt version indicator (e.g. V1, V2)")
+    system_prompt: Optional[str] = Field(None, max_length=20_000, description="System instructions context")
+    user_template: str = Field(..., min_length=1, max_length=20_000, description="User prompt template text, supports double-curly bracket placeholders")
+    description: Optional[str] = Field(None, max_length=5_000, description="Optional notes or changelog comment")
 
 
 class PromptCreate(PromptBase):

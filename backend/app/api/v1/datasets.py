@@ -1,5 +1,5 @@
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated, List, Optional
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
@@ -21,8 +21,8 @@ async def create_dataset(
 
 @router.get("/", response_model=List[schema_dataset.Dataset])
 async def list_datasets(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists all available evaluation datasets."""
@@ -83,7 +83,10 @@ async def create_test_case(
 @router.post("/{dataset_id}/testcases/batch", status_code=status.HTTP_201_CREATED)
 async def create_test_cases_batch(
     dataset_id: int,
-    test_cases_in: List[schema_dataset.TestCaseCreate],
+    test_cases_in: Annotated[
+        List[schema_dataset.TestCaseCreate],
+        Body(min_length=1, max_length=500),
+    ],
     db: AsyncSession = Depends(get_db),
 ):
     """Batch imports an array of JSON test cases into a dataset."""
@@ -110,8 +113,8 @@ async def create_test_cases_batch(
 @router.get("/{dataset_id}/testcases", response_model=List[schema_dataset.TestCase])
 async def list_test_cases(
     dataset_id: int,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists test cases within a dataset."""

@@ -36,7 +36,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - EVALFORGE_API_KEY=evalforge_admin_secret_key
+      - EVALFORGE_API_KEY=${EVALFORGE_API_KEY:?Set EVALFORGE_API_KEY in the environment}
     ports:
       - "8000:8000"
     depends_on:
@@ -59,7 +59,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - EVALFORGE_API_KEY=evalforge_admin_secret_key
+      - EVALFORGE_API_KEY=${EVALFORGE_API_KEY:?Set EVALFORGE_API_KEY in the environment}
     depends_on:
       - db
       - redis

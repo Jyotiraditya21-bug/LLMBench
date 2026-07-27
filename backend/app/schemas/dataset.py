@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 # --- Test Case Schemas ---
 
 class TestCaseBase(BaseModel):
-    question: str = Field(..., description="The input prompt/question for the LLM")
-    ground_truth: str = Field(..., description="The expected ideal answer")
-    category: str = Field("general", description="Evaluation category (e.g. factual, reasoning, safety)")
+    question: str = Field(..., min_length=1, max_length=20_000, description="The input prompt/question for the LLM")
+    ground_truth: str = Field(..., min_length=1, max_length=20_000, description="The expected ideal answer")
+    category: str = Field("general", min_length=1, max_length=100, description="Evaluation category (e.g. factual, reasoning, safety)")
     meta_data: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Metadata tags or parameters")
 
 
@@ -36,10 +36,10 @@ class TestCase(TestCaseBase):
 # --- Dataset Schemas ---
 
 class DatasetBase(BaseModel):
-    name: str = Field(..., description="Human readable name of the dataset")
-    version: str = Field("1.0.0", description="Semver version of the dataset")
-    description: Optional[str] = Field(None, description="Optional dataset description")
-    category: str = Field("general", description="Overall category category classification")
+    name: str = Field(..., min_length=1, max_length=255, description="Human readable name of the dataset")
+    version: str = Field("1.0.0", min_length=1, max_length=50, description="Semver version of the dataset")
+    description: Optional[str] = Field(None, max_length=5_000, description="Optional dataset description")
+    category: str = Field("general", min_length=1, max_length=100, description="Overall category classification")
 
 
 class DatasetCreate(DatasetBase):

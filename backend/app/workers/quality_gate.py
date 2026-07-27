@@ -5,7 +5,9 @@ import requests
 
 # Load configs from env
 BACKEND_URL = os.getenv("EVALFORGE_BACKEND_URL", "http://localhost:8000/api/v1")
-API_KEY = os.getenv("EVALFORGE_API_KEY", "evalforge_admin_secret_key")
+API_KEY = os.getenv("EVALFORGE_API_KEY")
+if not API_KEY:
+    raise RuntimeError("EVALFORGE_API_KEY must be set before running the quality gate")
 HEADERS = {"X-API-Key": API_KEY}
 
 DATASET_ID = int(os.getenv("EVALFORGE_DATASET_ID", "1"))
@@ -49,6 +51,9 @@ def check_quality_gate():
         
         if status == "COMPLETED":
             break
+        elif status == "DEMO_COMPLETED":
+            print("[ERROR] Demo/mock results cannot be used as a CI quality gate.")
+            sys.exit(1)
         elif status == "FAILED":
             print(f"[ERROR] Evaluation run failed. Error: {run.get('metrics', {}).get('error')}")
             sys.exit(1)

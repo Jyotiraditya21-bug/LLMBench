@@ -73,6 +73,7 @@ async def async_run_evaluation(run_id: int, models: List[str]) -> str:
                 sum_tone = 0.0
                 sum_reasoning = 0.0
                 hallucinated_count = 0
+                used_demo_data = False
 
                 # 4. Orchestrate evaluation executions
                 # We process test cases sequentially to avoid API rate limits, but models in parallel
@@ -98,6 +99,11 @@ async def async_run_evaluation(run_id: int, models: List[str]) -> str:
                             question=tc.question,
                             ground_truth=tc.ground_truth,
                             model_output=target_response["output"],
+                        )
+                        used_demo_data = (
+                            used_demo_data
+                            or target_response.get("is_mock", False)
+                            or judge_response.get("is_mock", False)
                         )
 
                         # Record stats
@@ -157,9 +163,11 @@ async def async_run_evaluation(run_id: int, models: List[str]) -> str:
                     "average_tone": round(avg_tone, 2),
                     "average_reasoning": round(avg_reasoning, 2),
                     "hallucination_rate": round(hallucination_rate, 4),
+                    "evaluation_mode": "DEMO" if used_demo_data else "REAL",
+                    "contains_mock_data": used_demo_data,
                 }
 
-                run.status = "COMPLETED"
+                run.status = "DEMO_COMPLETED" if used_demo_data else "COMPLETED"
                 await db.commit()
                 return f"Run {run_id} completed successfully. Evaluated {results_count} instances."
 
@@ -175,4 +183,3 @@ async def async_run_evaluation(run_id: int, models: List[str]) -> str:
                 return f"Run {run_id} failed: {str(e)}"
     finally:
         await engine.dispose()
-
