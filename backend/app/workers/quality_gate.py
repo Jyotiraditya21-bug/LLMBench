@@ -57,6 +57,9 @@ def check_quality_gate():
         elif status == "FAILED":
             print(f"[ERROR] Evaluation run failed. Error: {run.get('metrics', {}).get('error')}")
             sys.exit(1)
+        elif status == "CANCELLED":
+            print("[ERROR] Evaluation run was cancelled.")
+            sys.exit(1)
             
         time.sleep(2)
 

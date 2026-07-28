@@ -53,13 +53,30 @@ async def trigger_evaluation(
     )
     run = await crud_eval.evaluation_run.create(db, obj_in=run_in)
 
-    # 4. Dispatch Celery task
+    # 4. Dispatch Celery task and persist its ID for cancellation/auditing.
     try:
         from backend.app.workers.tasks import run_evaluation_task
-        run_evaluation_task.delay(run.id, trigger_in.models)
-    except ImportError:
-        # Fallback for testing environments without celery fully set up
-        pass
+        task = run_evaluation_task.apply_async(args=[run.id, trigger_in.models])
+        run.metrics = {
+            "task_id": task.id,
+            "models": trigger_in.models,
+            "progress": {"completed": 0, "total": len(dataset.test_cases) * len(trigger_in.models)},
+        }
+        await db.commit()
+        await db.refresh(run)
+    except Exception as exc:
+        await db.rollback()
+        run.status = "FAILED"
+        run.metrics = {
+            "error": "Evaluation could not be published to the worker queue.",
+            "queue_error": type(exc).__name__,
+        }
+        db.add(run)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Evaluation queue is unavailable; the run was marked FAILED.",
+        ) from exc
 
     return run
 
@@ -86,6 +103,51 @@ async def get_evaluation_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evaluation run with ID {run_id} not found",
         )
+    return run
+
+
+@router.post("/{run_id}/cancel", response_model=schema_eval.EvaluationRun)
+async def cancel_evaluation_run(
+    run_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancels a queued or running evaluation without terminating a worker process."""
+    run = await crud_eval.evaluation_run.get(db, id=run_id)
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evaluation run with ID {run_id} not found",
+        )
+    if run.status == "CANCELLED":
+        return run
+    if run.status not in {"PENDING", "RUNNING", "RETRYING"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Evaluation run in {run.status} state cannot be cancelled",
+        )
+
+    metrics = dict(run.metrics or {})
+    task_id = metrics.get("task_id")
+    run.status = "CANCELLED"
+    metrics["cancelled"] = True
+    run.metrics = metrics
+    db.add(run)
+    await db.commit()
+    await db.refresh(run)
+
+    if task_id:
+        from backend.app.core.celery_app import celery_app
+
+        try:
+            celery_app.control.revoke(task_id, terminate=False)
+        except Exception as exc:
+            # The persisted CANCELLED state is authoritative; a running worker
+            # checks it before storing another result or marking completion.
+            metrics = dict(run.metrics or {})
+            metrics["revoke_warning"] = type(exc).__name__
+            run.metrics = metrics
+            await db.commit()
+            await db.refresh(run)
     return run
 
 

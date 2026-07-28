@@ -954,6 +954,11 @@ async function handleTriggerEvaluation(e) {
                     fillEl.style.width = "100%";
                     fillEl.style.backgroundColor = "var(--accent-red)";
                     msgEl.innerHTML = `<span style="color:var(--accent-red)">Run failed: ${escapeHtml(polledRun.metrics?.error || 'Unknown executor error.')}</span>`;
+                } else if (polledRun.status === 'CANCELLED') {
+                    clearInterval(pollingInterval);
+                    fillEl.style.width = "100%";
+                    fillEl.style.backgroundColor = "var(--accent-yellow)";
+                    msgEl.textContent = "Evaluation run cancelled.";
                 } else {
                     progressPercent = Math.min(progressPercent + 10, 95);
                     fillEl.style.width = `${progressPercent}%`;
