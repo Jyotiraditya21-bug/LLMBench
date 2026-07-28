@@ -15,6 +15,8 @@ LLMBench is a production-grade AI quality engineering platform designed to bench
 * **AI Red Team Auditor:** Analyzes target datasets to generate adversarial prompt injections, safety bypass vectors, and outdated information traps, helping test LLM robustness.
 * **Cost-to-Quality Optimization:** Analyzes accuracy-to-cost efficiency frontiers and provides automated recommendations for routing queries to cheaper models (e.g. Gemini Flash) when thresholds are met.
 * **CI Verification:** GitHub Actions runs the automated test suite on pushes and pull requests. A live LLM quality gate will be restored in Version 2 after persistent real baselines are implemented.
+* **Strict Validation:** Rejects unsupported or duplicate models, malformed IDs, unknown request fields, invalid numeric metrics, and out-of-range judge scores.
+* **Reliable Evaluation Jobs:** Records queue failures, publishes progress, applies bounded provider timeouts and worker retries, supports cancellation, and prevents duplicate result rows.
 
 ---
 
@@ -79,6 +81,11 @@ Real evaluation mode never substitutes fake results when a provider is missing
 or fails. For UI demonstrations without provider credentials, explicitly set
 `DEMO_MODE=true`. Demo runs are labeled `DEMO_COMPLETED` and are excluded from
 production regression, cost, and quality-gate results.
+
+Evaluation workers retry transient failures twice with exponential backoff.
+Each provider or judge call is limited to 120 seconds, while a complete task has
+a 30-minute soft limit. Queued or active runs can be cancelled with
+`POST /api/v1/evaluations/{run_id}/cancel`.
 
 ### 1. Launch Services via Docker Compose
 Initialize the PostgreSQL, Redis, Celery, and FastAPI application containers:

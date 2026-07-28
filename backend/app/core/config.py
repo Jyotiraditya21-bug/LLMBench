@@ -26,7 +26,7 @@ except ImportError:
     sys.modules["anthropic"] = dummy_anthropic
     HAS_ANTHROPIC = False
 
-from pydantic import AnyHttpUrl, BeforeValidator, field_validator
+from pydantic import AnyHttpUrl, BeforeValidator, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,6 +84,21 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     HAS_ANTHROPIC: bool = HAS_ANTHROPIC
     DEMO_MODE: bool = False
+    MODEL_CALL_TIMEOUT_SECONDS: int = Field(120, ge=1, le=600)
+    EVALUATION_TASK_SOFT_LIMIT_SECONDS: int = Field(1_800, ge=60)
+    EVALUATION_TASK_HARD_LIMIT_SECONDS: int = Field(1_860, ge=60)
+    EVALUATION_TASK_MAX_RETRIES: int = Field(2, ge=0, le=10)
+
+    @model_validator(mode="after")
+    def validate_task_time_limits(self) -> "Settings":
+        if (
+            self.EVALUATION_TASK_HARD_LIMIT_SECONDS
+            <= self.EVALUATION_TASK_SOFT_LIMIT_SECONDS
+        ):
+            raise ValueError(
+                "EVALUATION_TASK_HARD_LIMIT_SECONDS must exceed the soft limit"
+            )
+        return self
 
     # Observability (Optional integrations)
     LANGCHAIN_TRACING_V2: bool = False

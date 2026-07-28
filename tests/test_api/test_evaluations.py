@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import pytest
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.app.models.dataset import Dataset
 from backend.app.models.prompt import Prompt
@@ -20,11 +20,12 @@ async def test_trigger_evaluation_success(client: AsyncClient, mock_db: AsyncMoc
     with patch("backend.app.api.v1.evaluations.crud_dataset.dataset.get", new_callable=AsyncMock) as mock_get_ds, \
          patch("backend.app.api.v1.evaluations.crud_prompt.prompt.get", new_callable=AsyncMock) as mock_get_pr, \
          patch("backend.app.api.v1.evaluations.crud_eval.evaluation_run.create", new_callable=AsyncMock) as mock_create_run, \
-         patch("backend.app.workers.tasks.run_evaluation_task.delay") as mock_celery_delay:
+         patch("backend.app.workers.tasks.run_evaluation_task.apply_async") as mock_celery_dispatch:
         
         mock_get_ds.return_value = mock_dataset
         mock_get_pr.return_value = mock_prompt
         mock_create_run.return_value = mock_run
+        mock_celery_dispatch.return_value = MagicMock(id="task-123")
 
         payload = {
             "dataset_id": 1,
@@ -37,7 +38,8 @@ async def test_trigger_evaluation_success(client: AsyncClient, mock_db: AsyncMoc
         data = response.json()
         assert data["status"] == "PENDING"
         assert data["id"] == 10
-        mock_celery_delay.assert_called_once_with(10, ["gpt-4o"])
+        mock_celery_dispatch.assert_called_once_with(args=[10, ["gpt-4o"]])
+        assert mock_run.metrics["task_id"] == "task-123"
 
 
 @pytest.mark.asyncio
@@ -167,3 +169,93 @@ async def test_trigger_rejects_invalid_model_selection(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_trigger_rejects_coerced_ids_and_unknown_fields(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(
+        "/api/v1/evaluations/trigger",
+        json={
+            "dataset_id": "1",
+            "models": ["gpt-4o"],
+            "unexpected": True,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_queue_failure_marks_run_failed(
+    client: AsyncClient,
+    mock_db: AsyncMock,
+) -> None:
+    now = datetime.now(timezone.utc)
+    dataset = Dataset(
+        id=1,
+        name="Test DS",
+        version="1.0",
+        test_cases=[AsyncMock()],
+    )
+    run = EvaluationRun(
+        id=10,
+        dataset_id=1,
+        status="PENDING",
+        metrics={},
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "backend.app.api.v1.evaluations.crud_dataset.dataset.get",
+        new_callable=AsyncMock,
+        return_value=dataset,
+    ), patch(
+        "backend.app.api.v1.evaluations.crud_eval.evaluation_run.create",
+        new_callable=AsyncMock,
+        return_value=run,
+    ), patch(
+        "backend.app.workers.tasks.run_evaluation_task.apply_async",
+        side_effect=ConnectionError("Redis unavailable"),
+    ):
+        response = await client.post(
+            "/api/v1/evaluations/trigger",
+            json={"dataset_id": 1, "models": ["gpt-4o"]},
+        )
+
+    assert response.status_code == 503
+    assert run.status == "FAILED"
+    assert run.metrics["queue_error"] == "ConnectionError"
+    mock_db.rollback.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cancel_running_evaluation_is_idempotent(
+    client: AsyncClient,
+) -> None:
+    now = datetime.now(timezone.utc)
+    run = EvaluationRun(
+        id=10,
+        dataset_id=1,
+        status="RUNNING",
+        metrics={"task_id": "task-123"},
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "backend.app.api.v1.evaluations.crud_eval.evaluation_run.get",
+        new_callable=AsyncMock,
+        side_effect=[run, run],
+    ), patch(
+        "backend.app.core.celery_app.celery_app.control.revoke"
+    ) as revoke:
+        first = await client.post("/api/v1/evaluations/10/cancel")
+        second = await client.post("/api/v1/evaluations/10/cancel")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["status"] == "CANCELLED"
+    revoke.assert_called_once_with("task-123", terminate=False)

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base
@@ -40,6 +40,15 @@ class EvaluationResult(Base):
 
     Captures latency, tokens, costs, raw generated text, and strict judge scores.
     """
+
+    __table_args__ = (
+        UniqueConstraint(
+            "evaluation_run_id",
+            "test_case_id",
+            "model_name",
+            name="uq_evaluation_result_run_case_model",
+        ),
+    )
 
     evaluation_run_id: Mapped[int] = mapped_column(
         ForeignKey("evaluation_runs.id", ondelete="CASCADE"),

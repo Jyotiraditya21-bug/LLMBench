@@ -4,6 +4,17 @@
 
 Version 2 will keep the useful evaluation features from Version 1 while making the platform secure, reliable, scalable, easier to maintain, and clearer to use.
 
+## Current Progress
+
+- [x] Remove exposed secrets and close HTML-injection paths.
+- [x] Make real and mock evaluations impossible to confuse.
+- [x] Add strict request, model, result, and judge validation.
+- [x] Add queue-failure handling, bounded retries and timeouts, cancellation, progress reporting, and idempotent result storage.
+- [ ] Protect historical data and evaluation reproducibility.
+- [ ] Improve concurrency, pagination, and database performance.
+- [ ] Rebuild the dashboard states and accessibility.
+- [ ] Expand tests, CI checks, monitoring, and deployment safety.
+
 ## Planned Improvements
 
 ### 1. Security
@@ -89,8 +100,8 @@ Version 2 will keep the useful evaluation features from Version 1 while making t
 
 1. Remove exposed secrets and close HTML-injection paths.
 2. Make real and mock evaluations impossible to confuse.
-3. Add strict request, model, and judge validation.
-4. Fix job state handling, timeouts, retries, and idempotency.
+3. ~~Add strict request, model, and judge validation.~~ Completed.
+4. ~~Fix job state handling, timeouts, retries, and idempotency.~~ Completed.
 5. Protect historical data and evaluation reproducibility.
 6. Improve concurrency, pagination, and database performance.
 7. Rebuild the dashboard states and accessibility.

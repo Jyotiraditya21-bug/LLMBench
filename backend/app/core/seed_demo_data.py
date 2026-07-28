@@ -174,7 +174,7 @@ def run_seeding():
         
         print(f"Run A: {status_a} | Run B: {status_b}")
         
-        terminal_statuses = ["COMPLETED", "DEMO_COMPLETED", "FAILED"]
+        terminal_statuses = ["COMPLETED", "DEMO_COMPLETED", "FAILED", "CANCELLED"]
         if status_a in terminal_statuses and status_b in terminal_statuses:
             break
             
