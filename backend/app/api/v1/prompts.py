@@ -1,10 +1,13 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
 from backend.app.core.security import verify_api_key
 from backend.app.crud import prompt as crud_prompt
+from backend.app.models.evaluation import EvaluationRun
+from backend.app.models.prompt import Prompt
 from backend.app.schemas import prompt as schema_prompt
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
@@ -31,10 +34,15 @@ async def create_prompt(
 async def list_prompts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    search: Optional[str] = Query(None, min_length=1, max_length=255),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists registered prompt templates."""
-    return await crud_prompt.prompt.get_multi(db, skip=skip, limit=limit)
+    query = select(Prompt).order_by(Prompt.id.desc())
+    if search:
+        query = query.where(Prompt.name.ilike(f"%{search}%"))
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
 
 
 @router.get("/{prompt_id}", response_model=schema_prompt.Prompt)
@@ -48,6 +56,16 @@ async def get_prompt(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Prompt with ID {prompt_id} not found",
+        )
+    referenced_run = await db.scalar(
+        select(EvaluationRun.id)
+        .where(EvaluationRun.prompt_id == prompt_id)
+        .limit(1)
+    )
+    if referenced_run:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Prompt is preserved because evaluation history references it",
         )
     return db_prompt
 

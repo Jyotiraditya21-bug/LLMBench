@@ -15,6 +15,17 @@ class CRUDDataset(CRUDBase[Dataset, DatasetCreate, DatasetUpdate]):
         result = await db.execute(select(self.model).filter(self.model.name == name))
         return result.scalars().first()
 
+    async def get_by_name_and_version(
+        self, db: AsyncSession, *, name: str, version: str
+    ) -> Optional[Dataset]:
+        result = await db.execute(
+            select(self.model).filter(
+                self.model.name == name,
+                self.model.version == version,
+            )
+        )
+        return result.scalars().first()
+
 
 class CRUDTestCase(CRUDBase[TestCase, TestCaseCreate, TestCaseUpdate]):
     """CRUD repository for individual test cases."""
@@ -41,6 +52,21 @@ class CRUDTestCase(CRUDBase[TestCase, TestCaseCreate, TestCaseUpdate]):
         await db.commit()
         await db.refresh(db_obj)
         return db_obj
+
+    async def create_many_with_dataset(
+        self,
+        db: AsyncSession,
+        *,
+        items: List[TestCaseCreate],
+        dataset_id: int,
+    ) -> List[TestCase]:
+        db_objects = [
+            self.model(**item.model_dump(), dataset_id=dataset_id)
+            for item in items
+        ]
+        db.add_all(db_objects)
+        await db.commit()
+        return db_objects
 
 
 dataset = CRUDDataset(Dataset)

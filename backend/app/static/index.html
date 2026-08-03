@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/dashboard/static/style.css?v=1.0.1">
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <!-- Viewport Register Marks (anchormem style) -->
     <div class="vp-corner tl"></div>
     <div class="vp-corner tr"></div>
@@ -23,7 +24,7 @@
             <span class="brand-logo">LLMBench</span>
             <span class="tagline">AI Quality &amp; LLM Engineering Platform</span>
         </div>
-        <nav class="sidebar-menu">
+        <nav class="sidebar-menu" aria-label="Primary navigation">
             <a href="#dashboard" class="menu-item active">Dashboard</a>
             <a href="#datasets" class="menu-item">Datasets</a>
             <a href="#arena" class="menu-item">Prompt Arena</a>
@@ -32,7 +33,7 @@
             <a href="#cost" class="menu-item">Cost Analytics</a>
         </nav>
         <div class="top-actions">
-            <a href="https://github.com/Jyotiraditya21-bug/LLMBench" target="_blank" class="top-btn github-btn">
+            <a href="https://github.com/Jyotiraditya21-bug/LLMBench" target="_blank" rel="noopener noreferrer" class="top-btn github-btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>GitHub
             </a>
             <button class="top-btn guide-btn" onclick="openProductGuide()">
@@ -48,7 +49,7 @@
     <div class="app-layout">
 
         <!-- Main Content Area -->
-        <main class="main-content">
+        <main id="main-content" class="main-content" tabindex="-1">
             <!-- 1. Dashboard Tab -->
             <section id="dashboard" class="scroll-section">
                 <header class="tab-header">
@@ -161,7 +162,7 @@
                 <div class="card chart-card">
                     <h2>LLM Cost-to-Quality Efficiency Frontier</h2>
                     <p class="card-description">Quality vs. Cost Scale (Bubble Size = Latency)</p>
-                    <div id="frontier-chart" class="chart-container"></div>
+                    <div id="frontier-chart" class="chart-container" role="img" aria-label="Cost, accuracy, and latency comparison by model"></div>
                 </div>
 
                 <div class="card">
@@ -234,6 +235,8 @@
                 </div>
 
                 <div class="card selector-card">
+                    <label for="dataset-search">Search Datasets</label>
+                    <input id="dataset-search" type="search" maxlength="255" placeholder="Filter by dataset name" oninput="loadDatasetsList(this.value)">
                     <label for="ds-selector">Select Dataset to Inspect / Manage</label>
                     <select id="ds-selector" onchange="loadSelectedDataset()">
                         <option value="">Loading datasets...</option>
@@ -467,7 +470,7 @@
 
                         <div class="chart-card" style="margin-top: 30px;">
                             <h3>Metric Dimensions Overview (Radar Plot)</h3>
-                            <div id="arena-radar-chart" class="chart-container"></div>
+                            <div id="arena-radar-chart" class="chart-container" role="img" aria-label="Baseline and comparison run score dimensions"></div>
                         </div>
                     </div>
                 </div>
@@ -532,18 +535,19 @@
                                         </label>
                                     </div>
                                 </div>
-                                <button type="submit" class="btn primary-btn">Start Evaluation Suite</button>
+                                <button id="hub-start-button" type="submit" class="btn primary-btn">Start Evaluation Suite</button>
                             </form>
 
                             <!-- Dynamic Status Tracker -->
-                            <div id="hub-run-status-container" class="hidden" style="margin-top: 30px;">
+                            <div id="hub-run-status-container" class="hidden" style="margin-top: 30px;" role="status" aria-live="polite">
                                 <div class="card bg-accent-pine">
                                     <h3>Execution Status</h3>
                                     <p>Current Pipeline Run Status: <strong id="hub-run-status">PENDING</strong></p>
                                     <div class="progress-bar-container">
-                                        <div id="hub-run-progress" class="progress-bar-fill" style="width: 0%;"></div>
+                                        <div id="hub-run-progress" class="progress-bar-fill" style="width: 0%;" role="progressbar" aria-label="Evaluation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
                                     </div>
                                     <p id="hub-run-message" class="text-muted" style="margin-top: 10px;"></p>
+                                    <button id="hub-cancel-button" type="button" class="btn danger-btn hidden" onclick="cancelActiveRun()">Cancel Evaluation</button>
                                 </div>
                             </div>
                         </div>
@@ -551,6 +555,8 @@
                         <!-- Hub Tab 2: History -->
                         <div id="inner-tab-hub-history" class="inner-tab-panel">
                             <div class="card selector-card">
+                                <label for="hub-history-search">Filter Evaluation Runs</label>
+                                <input id="hub-history-search" type="search" placeholder="Search by run, dataset, or status" oninput="filterHistoryRuns(this.value)">
                                 <label for="hub-history-run-selector">Select Evaluation Run to Inspect</label>
                                 <select id="hub-history-run-selector" onchange="loadHistoryRunDetails()">
                                     <option value="">Loading execution runs...</option>
@@ -697,12 +703,12 @@
                 <div class="flex-row">
                     <div class="card col-half">
                         <h2>Cost per Query by Model</h2>
-                        <div id="cost-bar-chart" class="chart-container"></div>
+                        <div id="cost-bar-chart" class="chart-container" role="img" aria-label="Average query cost by model"></div>
                     </div>
                     <div class="card col-half">
                         <h2>Accuracy-to-Cost Efficiency Ratio</h2>
                         <p class="card-description">Calculated as (Accuracy Score / Cost in Millidollars). Higher means more value per dollar.</p>
-                        <div id="value-bar-chart" class="chart-container"></div>
+                        <div id="value-bar-chart" class="chart-container" role="img" aria-label="Quality per cost efficiency by model"></div>
                     </div>
                 </div>
 

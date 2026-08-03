@@ -8,7 +8,7 @@ LLMBench is a production-grade AI quality engineering platform designed to bench
 
 ## Key Capabilities
 
-* **Asynchronous Evaluation Pipeline:** Schedules large-scale test suites asynchronously using Celery and Redis to execute parallel runs without blocking application threads.
+* **Asynchronous Evaluation Pipeline:** Schedules immutable evaluation snapshots through Celery and Redis, with bounded model concurrency and provider-specific limits.
 * **LLM-as-a-Judge (Claude Evaluation):** Leverages Claude Haiku as an automated judge to grade model responses across five qualitative dimensions: Accuracy, Completeness, Hallucination Resistance, Tone, and Reasoning.
 * **Prompt Arena (A/B Testing):** Compares prompt versions side-by-side. Computes statistical latency deltas, pricing differences, and judge rating comparisons using interactive Plotly radar charts.
 * **Automated Failure Diagnostics (Root Cause Agent):** Aggregates failed evaluation results and uses Claude 3.5 Sonnet to synthesize failure modes and suggest prompt scaffold corrections.
@@ -17,6 +17,8 @@ LLMBench is a production-grade AI quality engineering platform designed to bench
 * **CI Verification:** GitHub Actions runs the automated test suite on pushes and pull requests. A live LLM quality gate will be restored in Version 2 after persistent real baselines are implemented.
 * **Strict Validation:** Rejects unsupported or duplicate models, malformed IDs, unknown request fields, invalid numeric metrics, and out-of-range judge scores.
 * **Reliable Evaluation Jobs:** Records queue failures, publishes progress, applies bounded provider timeouts and worker retries, supports cancellation, and prevents duplicate result rows.
+* **Reproducible History:** Captures dataset, test-case, prompt, model, judge, and pricing versions for every run and rejects incompatible regression comparisons.
+* **Operational Readiness:** Provides database, Redis, and worker readiness checks, request IDs, structured request logs, pinned dependencies, and automated security auditing.
 
 ---
 
@@ -96,16 +98,21 @@ docker-compose up -d
 ### 2. Set Up Python Environment
 Create a virtual environment and install the required dependencies:
 ```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv backend/.venv
+source backend/.venv/bin/activate
+pip install -r backend/requirements.txt
 ```
 
-### 3. Seed the Database
-Initialize tables and populate mock datasets:
+### 3. Apply Database Migrations
+Alembic is the authoritative schema-management path:
 ```bash
-python -m backend.app.core.seed_db
+alembic -c backend/alembic.ini upgrade head
+```
+
+To populate a new database with labeled demo data, run:
+
+```bash
+PYTHONPATH=. python -m backend.app.core.seed_db
 ```
 
 ### 4. Run the Servers Locally (Outside Docker)
@@ -124,6 +131,14 @@ Verify code behavior and endpoint security checks:
 ```bash
 PYTHONPATH=. pytest
 ```
+
+Operational probes are available at `/health/live` and `/health/ready`. The
+readiness probe verifies PostgreSQL, Redis, and an active Celery worker. Set
+`CORS_ALLOWED_ORIGINS` to a comma-separated list of trusted frontend origins.
+
+Evaluation history endpoints are paginated. Granular results are retrieved
+with `GET /api/v1/evaluations/{run_id}/results?skip=0&limit=100`; run summaries
+do not load every result row.
 
 ---
 

@@ -3,7 +3,7 @@ import pytest
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.app.models.dataset import Dataset
+from backend.app.models.dataset import Dataset, TestCase as CaseModel
 from backend.app.models.prompt import Prompt
 from backend.app.models.evaluation import EvaluationRun
 from backend.app.models.regression import RegressionReport
@@ -13,9 +13,29 @@ from backend.app.models.regression import RegressionReport
 async def test_trigger_evaluation_success(client: AsyncClient, mock_db: AsyncMock) -> None:
     """Asserts that triggering evaluation with valid data schedules task and returns HTTP 202."""
     now = datetime.now(timezone.utc)
-    mock_dataset = Dataset(id=1, name="Test DS", version="1.0", test_cases=[AsyncMock()])
-    mock_prompt = Prompt(id=2, name="Test Prompt", version="1.0")
-    mock_run = EvaluationRun(id=10, dataset_id=1, prompt_id=2, status="PENDING", created_at=now, updated_at=now)
+    mock_dataset = Dataset(
+        id=1,
+        name="Test DS",
+        version="1.0",
+        category="general",
+        test_cases=[
+            CaseModel(
+                id=1,
+                dataset_id=1,
+                question="Question",
+                ground_truth="Answer",
+                category="general",
+                meta_data={},
+            )
+        ],
+    )
+    mock_prompt = Prompt(
+        id=2,
+        name="Test Prompt",
+        version="1.0",
+        user_template="{{question}}",
+    )
+    mock_run = EvaluationRun(id=10, dataset_id=1, prompt_id=2, status="PENDING", snapshot={}, created_at=now, updated_at=now)
 
     with patch("backend.app.api.v1.evaluations.crud_dataset.dataset.get", new_callable=AsyncMock) as mock_get_ds, \
          patch("backend.app.api.v1.evaluations.crud_prompt.prompt.get", new_callable=AsyncMock) as mock_get_pr, \
@@ -151,6 +171,52 @@ async def test_compare_rejects_demo_run(client: AsyncClient, mock_db: AsyncMock)
 
 
 @pytest.mark.asyncio
+async def test_compare_rejects_incompatible_snapshots(
+    client: AsyncClient,
+) -> None:
+    now = datetime.now(timezone.utc)
+    baseline = EvaluationRun(
+        id=1,
+        dataset_id=1,
+        status="COMPLETED",
+        metrics={"evaluation_mode": "REAL"},
+        snapshot={
+            "dataset_fingerprint": "dataset-a",
+            "models": ["gpt-4o"],
+            "judge_version": "judge-v1",
+        },
+        created_at=now,
+        updated_at=now,
+    )
+    comparison = EvaluationRun(
+        id=2,
+        dataset_id=2,
+        status="COMPLETED",
+        metrics={"evaluation_mode": "REAL"},
+        snapshot={
+            "dataset_fingerprint": "dataset-b",
+            "models": ["gpt-4o"],
+            "judge_version": "judge-v1",
+        },
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "backend.app.api.v1.evaluations.crud_eval.evaluation_run.get",
+        new_callable=AsyncMock,
+        side_effect=[baseline, comparison],
+    ):
+        response = await client.post(
+            "/api/v1/evaluations/compare",
+            json={"baseline_run_id": 1, "comparison_run_id": 2},
+        )
+
+    assert response.status_code == 409
+    assert "matching dataset snapshots" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "models",
     [
@@ -197,13 +263,24 @@ async def test_queue_failure_marks_run_failed(
         id=1,
         name="Test DS",
         version="1.0",
-        test_cases=[AsyncMock()],
+        category="general",
+        test_cases=[
+            CaseModel(
+                id=1,
+                dataset_id=1,
+                question="Question",
+                ground_truth="Answer",
+                category="general",
+                meta_data={},
+            )
+        ],
     )
     run = EvaluationRun(
         id=10,
         dataset_id=1,
         status="PENDING",
         metrics={},
+        snapshot={},
         created_at=now,
         updated_at=now,
     )
@@ -241,6 +318,7 @@ async def test_cancel_running_evaluation_is_idempotent(
         dataset_id=1,
         status="RUNNING",
         metrics={"task_id": "task-123"},
+        snapshot={},
         created_at=now,
         updated_at=now,
     )

@@ -1,10 +1,14 @@
 import os
 from typing import Any, Dict, List
 import anthropic
-import google.generativeai as genai
 import openai
 
 from backend.app.core.config import settings
+from backend.app.core.google_client import generate_google_text
+
+
+class AgentEvaluationError(RuntimeError):
+    """Raised when an agent cannot produce a trustworthy real result."""
 
 RCA_SYSTEM_PROMPT = """You are a Principal AI Quality Assurance Engineer and Root Cause Analysis Agent.
 Your task is to analyze a list of failed LLM evaluations (low accuracy or poor reasoning) and generate a structured root-cause report in markdown.
@@ -93,20 +97,21 @@ Judge Reason: {f.get('reason')}
             pass
 
     # 3. Attempt Gemini (Gemini 1.5 Pro)
-    if settings.GEMINI_API_KEY:
+    if settings.GEMINI_API_KEY and settings.HAS_GOOGLE_GENAI:
         try:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            client = genai.GenerativeModel(
-                model_name="gemini-1.5-pro",
-                system_instruction=RCA_SYSTEM_PROMPT
+            return await generate_google_text(
+                api_key=settings.GEMINI_API_KEY,
+                model="gemini-1.5-pro",
+                prompt=RCA_USER_TEMPLATE.format(failures_str=failures_str),
+                system_prompt=RCA_SYSTEM_PROMPT,
+                temperature=0.2,
+                max_output_tokens=1500,
             )
-            response = await client.generate_content_async(
-                RCA_USER_TEMPLATE.format(failures_str=failures_str),
-                generation_config={"temperature": 0.2, "max_output_tokens": 1500}
-            )
-            return response.text
         except Exception:
             pass
 
-    # 4. Fallback mock report
-    return "*(MOCK AGENT)*\n\n" + default_report
+    if not settings.DEMO_MODE:
+        raise AgentEvaluationError(
+            "No configured provider produced a root-cause report"
+        )
+    return "*(DEMO AGENT OUTPUT)*\n\n" + default_report

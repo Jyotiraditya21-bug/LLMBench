@@ -29,6 +29,8 @@ except ImportError:
 from pydantic import AnyHttpUrl, BeforeValidator, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from backend.app.core.google_client import HAS_GOOGLE_GENAI
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -39,6 +41,9 @@ class Settings(BaseSettings):
 
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "LLMBench"
+    CORS_ALLOWED_ORIGINS: str = (
+        "http://localhost:8000,http://localhost:7860"
+    )
 
     # API Security
     API_KEY_NAME: str = "X-API-Key"
@@ -83,11 +88,17 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     HAS_ANTHROPIC: bool = HAS_ANTHROPIC
+    HAS_GOOGLE_GENAI: bool = HAS_GOOGLE_GENAI
     DEMO_MODE: bool = False
     MODEL_CALL_TIMEOUT_SECONDS: int = Field(120, ge=1, le=600)
     EVALUATION_TASK_SOFT_LIMIT_SECONDS: int = Field(1_800, ge=60)
     EVALUATION_TASK_HARD_LIMIT_SECONDS: int = Field(1_860, ge=60)
     EVALUATION_TASK_MAX_RETRIES: int = Field(2, ge=0, le=10)
+    EVALUATION_MAX_CONCURRENCY: int = Field(4, ge=1, le=32)
+    OPENAI_MAX_CONCURRENCY: int = Field(2, ge=1, le=16)
+    ANTHROPIC_MAX_CONCURRENCY: int = Field(2, ge=1, le=16)
+    GEMINI_MAX_CONCURRENCY: int = Field(2, ge=1, le=16)
+    READINESS_REQUIRE_WORKER: bool = True
 
     @model_validator(mode="after")
     def validate_task_time_limits(self) -> "Settings":

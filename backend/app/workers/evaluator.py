@@ -1,14 +1,15 @@
+import asyncio
 import json
 import re
 import time
 from typing import Any, Dict, Optional
 
 import anthropic
-import google.generativeai as genai
 import openai
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.core.config import settings
+from backend.app.core.google_client import generate_google_text
 
 
 class ProviderConfigurationError(RuntimeError):
@@ -71,6 +72,7 @@ async def call_target_llm(
     output = ""
     prompt_tokens = 0
     completion_tokens = 0
+    usage_estimated = False
 
     # Ensure lowercase model identifier
     model_lower = model.lower()
@@ -79,10 +81,11 @@ async def call_target_llm(
     if model_lower.startswith("gpt-"):
         if not settings.OPENAI_API_KEY:
             _require_real_provider("OpenAI", model)
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
             output = f"[MOCK OPENAI {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
             completion_tokens = len(output) // 4
+            usage_estimated = True
         else:
             client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
             messages = []
@@ -103,10 +106,11 @@ async def call_target_llm(
     elif model_lower.startswith("claude-"):
         if not settings.ANTHROPIC_API_KEY or not settings.HAS_ANTHROPIC:
             _require_real_provider("Anthropic", model)
-            time.sleep(0.6)
+            await asyncio.sleep(0.6)
             output = f"[MOCK ANTHROPIC {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
             completion_tokens = len(output) // 4
+            usage_estimated = True
         else:
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             system_param = system_prompt if system_prompt else anthropic.NotGiven()
@@ -124,24 +128,22 @@ async def call_target_llm(
 
     # --- Case 3: Google Gemini Models ---
     elif model_lower.startswith("gemini-"):
-        if not settings.GEMINI_API_KEY:
+        if not settings.GEMINI_API_KEY or not settings.HAS_GOOGLE_GENAI:
             _require_real_provider("Gemini", model)
-            time.sleep(0.4)
+            await asyncio.sleep(0.4)
             output = f"[MOCK GEMINI {model}] Answer to: '{prompt_text[:40]}...'"
             prompt_tokens = len(prompt_text) // 4
             completion_tokens = len(output) // 4
+            usage_estimated = True
         else:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
             gemini_model_name = "gemini-1.5-flash" if "flash" in model_lower else "gemini-1.5-pro"
-            client = genai.GenerativeModel(
-                model_name=gemini_model_name,
-                system_instruction=system_prompt,
+            output = await generate_google_text(
+                api_key=settings.GEMINI_API_KEY,
+                model=gemini_model_name,
+                prompt=prompt_text,
+                system_prompt=system_prompt,
+                temperature=0.2,
             )
-            response = await client.generate_content_async(
-                prompt_text,
-                generation_config={"temperature": 0.2},
-            )
-            output = response.text
             # Estimate tokens as SDK does not supply it directly in generate_content result
             prompt_tokens = len(prompt_text) // 4
             completion_tokens = len(output) // 4
@@ -149,10 +151,11 @@ async def call_target_llm(
     # --- Case 4: Default Fallback (Mock) ---
     else:
         _require_real_provider("Requested model provider", model)
-        time.sleep(0.3)
+        await asyncio.sleep(0.3)
         output = f"[MOCK {model}] Response for: '{prompt_text[:40]}...'"
         prompt_tokens = len(prompt_text) // 4
         completion_tokens = len(output) // 4
+        usage_estimated = True
 
     latency_ms = (time.perf_counter() - start_time) * 1000
     cost = calculate_cost(model, prompt_tokens, completion_tokens)
@@ -163,6 +166,7 @@ async def call_target_llm(
         "completion_tokens": completion_tokens,
         "cost": cost,
         "latency_ms": latency_ms,
+        "usage_estimated": usage_estimated,
         "is_mock": not (
             (model_lower.startswith("gpt-") and settings.OPENAI_API_KEY)
             or (
@@ -170,7 +174,11 @@ async def call_target_llm(
                 and settings.ANTHROPIC_API_KEY
                 and settings.HAS_ANTHROPIC
             )
-            or (model_lower.startswith("gemini-") and settings.GEMINI_API_KEY)
+            or (
+                model_lower.startswith("gemini-")
+                and settings.GEMINI_API_KEY
+                and settings.HAS_GOOGLE_GENAI
+            )
         ),
     }
 
@@ -256,15 +264,19 @@ async def evaluate_with_judge(
         except Exception as exc:
             judge_errors.append(f"OpenAI: {exc}")
 
-    if not raw_text and settings.GEMINI_API_KEY:
+    if (
+        not raw_text
+        and settings.GEMINI_API_KEY
+        and settings.HAS_GOOGLE_GENAI
+    ):
         try:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            client = genai.GenerativeModel("gemini-1.5-flash")
-            response = await client.generate_content_async(
-                judge_prompt,
-                generation_config={"temperature": 0.0, "response_mime_type": "application/json"}
+            raw_text = await generate_google_text(
+                api_key=settings.GEMINI_API_KEY,
+                model="gemini-1.5-flash",
+                prompt=judge_prompt,
+                temperature=0.0,
+                json_output=True,
             )
-            raw_text = response.text
         except Exception as exc:
             judge_errors.append(f"Gemini: {exc}")
 
@@ -275,7 +287,7 @@ async def evaluate_with_judge(
                 f"Real evaluation requires a working judge provider. {detail}"
             )
 
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
         if len(model_output) < len(ground_truth) // 2:
             default_result["completeness"] = 2.0
             default_result["reason"] = "Mock Judge: Answer appears significantly shorter than expected ground truth."
