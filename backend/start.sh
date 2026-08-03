@@ -8,6 +8,10 @@ if [ -z "$REDIS_URL" ]; then
   export REDIS_URL="redis://localhost:6379/0"
 fi
 
+# Apply the single authoritative Alembic migration chain.
+echo "Applying database migrations..."
+alembic -c backend/alembic.ini upgrade head
+
 # Start Celery worker in the background
 echo "Starting Celery worker..."
 celery -A backend.app.core.celery_app worker --pool=solo --loglevel=info &

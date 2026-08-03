@@ -10,10 +10,14 @@ Version 2 will keep the useful evaluation features from Version 1 while making t
 - [x] Make real and mock evaluations impossible to confuse.
 - [x] Add strict request, model, result, and judge validation.
 - [x] Add queue-failure handling, bounded retries and timeouts, cancellation, progress reporting, and idempotent result storage.
-- [ ] Protect historical data and evaluation reproducibility.
-- [ ] Improve concurrency, pagination, and database performance.
-- [ ] Rebuild the dashboard states and accessibility.
-- [ ] Expand tests, CI checks, monitoring, and deployment safety.
+- [x] Protect historical data and evaluation reproducibility.
+- [x] Improve concurrency, pagination, and database performance.
+- [x] Rebuild the dashboard states and accessibility.
+- [x] Expand tests, CI checks, monitoring, and deployment safety.
+
+Version 2's eight-step build order is complete. Future enhancements can extend
+role-based identity, distributed rate limiting, full tracing, and persistent
+live-model CI baselines without reopening the Version 1 reliability gaps.
 
 ## Planned Improvements
 
@@ -102,10 +106,10 @@ Version 2 will keep the useful evaluation features from Version 1 while making t
 2. Make real and mock evaluations impossible to confuse.
 3. ~~Add strict request, model, and judge validation.~~ Completed.
 4. ~~Fix job state handling, timeouts, retries, and idempotency.~~ Completed.
-5. Protect historical data and evaluation reproducibility.
-6. Improve concurrency, pagination, and database performance.
-7. Rebuild the dashboard states and accessibility.
-8. Expand tests, CI checks, monitoring, and deployment safety.
+5. ~~Protect historical data and evaluation reproducibility.~~ Completed.
+6. ~~Improve concurrency, pagination, and database performance.~~ Completed.
+7. ~~Rebuild the dashboard states and accessibility.~~ Completed.
+8. ~~Expand tests, CI checks, monitoring, and deployment safety.~~ Completed.
 
 ## Working Rule
 

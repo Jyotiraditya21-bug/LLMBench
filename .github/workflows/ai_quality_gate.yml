@@ -2,12 +2,16 @@ name: Version 2 Verification
 
 on:
   push:
-    branches: [main]
+    branches: [main, "agent/**"]
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
+
+concurrency:
+  group: v2-verification-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
@@ -28,9 +32,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
+      - name: Verify dependency consistency
+        run: python -m pip check
+
+      - name: Compile application
+        run: python -m compileall -q backend/app agents
+
+      - name: Verify Alembic migration chain
+        env:
+          EVALFORGE_API_KEY: ci-test-only-key
+        run: alembic -c backend/alembic.ini upgrade head --sql > /tmp/llmbench-migrations.sql
+
       - name: Run test suite
         env:
           EVALFORGE_API_KEY: ci-test-only-key
           USE_SQLITE: "true"
         run: |
           PYTHONPATH=. pytest -q
+
+  dependency-audit:
+    name: Audit Python dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Audit pinned requirements
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: backend/requirements.txt

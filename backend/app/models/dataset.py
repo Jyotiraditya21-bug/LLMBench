@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlalchemy import ForeignKey, String, Text, JSON
+from sqlalchemy import ForeignKey, String, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base
@@ -15,6 +15,10 @@ class Dataset(Base):
     version: Mapped[str] = mapped_column(String(50), default="1.0.0", nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     category: Mapped[str] = mapped_column(String(100), default="general", index=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_dataset_name_version"),
+    )
 
     # Relationships
     test_cases: Mapped[List["TestCase"]] = relationship(

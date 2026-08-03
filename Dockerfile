@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files maintaining the 'backend.app' package structure
 COPY backend/app /workspace/backend/app
+COPY backend/alembic /workspace/backend/alembic
+COPY backend/alembic.ini /workspace/backend/alembic.ini
 COPY backend/start.sh /workspace/backend/start.sh
 COPY agents /workspace/agents
 

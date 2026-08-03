@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 from typing import List, Optional
 
 from celery.signals import worker_process_init
@@ -24,6 +25,58 @@ TERMINAL_STATUSES = {"COMPLETED", "DEMO_COMPLETED", "FAILED", "CANCELLED"}
 
 class PermanentEvaluationError(RuntimeError):
     """A task failure that retrying cannot correct."""
+
+
+def _provider_key(model: str) -> str:
+    if model.startswith("gpt-"):
+        return "openai"
+    if model.startswith("claude-"):
+        return "anthropic"
+    return "gemini"
+
+
+async def _execute_work_item(
+    test_case: dict,
+    model: str,
+    prompt_snapshot: Optional[dict],
+    *,
+    global_limit: asyncio.Semaphore,
+    provider_limits: dict[str, asyncio.Semaphore],
+) -> dict:
+    async with global_limit, provider_limits[_provider_key(model)]:
+        system_prompt = (
+            prompt_snapshot.get("system_prompt") if prompt_snapshot else None
+        )
+        user_prompt = (
+            prompt_snapshot["user_template"].replace(
+                "{{question}}",
+                test_case["question"],
+            )
+            if prompt_snapshot
+            else test_case["question"]
+        )
+        target_response = await asyncio.wait_for(
+            call_target_llm(
+                model=model,
+                system_prompt=system_prompt,
+                prompt_text=user_prompt,
+            ),
+            timeout=settings.MODEL_CALL_TIMEOUT_SECONDS,
+        )
+        judge_response = await asyncio.wait_for(
+            evaluate_with_judge(
+                question=test_case["question"],
+                ground_truth=test_case["ground_truth"],
+                model_output=target_response["output"],
+            ),
+            timeout=settings.MODEL_CALL_TIMEOUT_SECONDS,
+        )
+        return {
+            "test_case": test_case,
+            "model": model,
+            "target": target_response,
+            "judge": judge_response,
+        }
 
 
 @worker_process_init.connect
@@ -128,14 +181,38 @@ async def async_run_evaluation(
         if run.status == "RUNNING" and not resume_interrupted:
             return f"Run {run_id} is already running; duplicate delivery ignored."
 
-        test_case_result = await db.execute(
-            select(TestCase).filter(TestCase.dataset_id == run.dataset_id)
-        )
-        test_cases = test_case_result.scalars().all()
+        snapshot = run.snapshot or {}
+        test_cases = snapshot.get("dataset", {}).get("test_cases", [])
+        prompt_snapshot = snapshot.get("prompt")
+        if not test_cases:
+            test_case_result = await db.execute(
+                select(TestCase).filter(TestCase.dataset_id == run.dataset_id)
+            )
+            legacy_test_cases = test_case_result.scalars().all()
+            test_cases = [
+                {
+                    "id": test_case.id,
+                    "question": test_case.question,
+                    "ground_truth": test_case.ground_truth,
+                    "category": test_case.category,
+                    "meta_data": test_case.meta_data or {},
+                }
+                for test_case in legacy_test_cases
+            ]
+            prompt_obj = (
+                await db.get(Prompt, run.prompt_id) if run.prompt_id else None
+            )
+            prompt_snapshot = (
+                {
+                    "system_prompt": prompt_obj.system_prompt,
+                    "user_template": prompt_obj.user_template,
+                }
+                if prompt_obj
+                else None
+            )
         if not test_cases:
             raise PermanentEvaluationError("Dataset contains zero test cases")
 
-        prompt_obj = await db.get(Prompt, run.prompt_id) if run.prompt_id else None
         total_expected = len(test_cases) * len(models)
 
         # A retry starts from a clean slate. The database uniqueness constraint is
@@ -168,47 +245,65 @@ async def async_run_evaluation(
         hallucinated_count = 0
         results_count = 0
         used_demo_data = False
+        used_estimated_usage = False
+        model_totals = defaultdict(
+            lambda: {
+                "count": 0,
+                "accuracy": 0.0,
+                "cost": 0.0,
+                "latency_ms": 0.0,
+            }
+        )
+        global_limit = asyncio.Semaphore(settings.EVALUATION_MAX_CONCURRENCY)
+        provider_limits = {
+            "openai": asyncio.Semaphore(settings.OPENAI_MAX_CONCURRENCY),
+            "anthropic": asyncio.Semaphore(settings.ANTHROPIC_MAX_CONCURRENCY),
+            "gemini": asyncio.Semaphore(settings.GEMINI_MAX_CONCURRENCY),
+        }
+        work_items = [
+            (test_case, model)
+            for test_case in test_cases
+            for model in models
+        ]
+        batch_size = settings.EVALUATION_MAX_CONCURRENCY
 
-        for test_case in test_cases:
-            for model in models:
-                await db.refresh(run)
-                if run.status == "CANCELLED":
-                    return f"Run {run_id} was cancelled after {results_count} results."
+        for offset in range(0, len(work_items), batch_size):
+            await db.refresh(run)
+            if run.status == "CANCELLED":
+                return f"Run {run_id} was cancelled after {results_count} results."
 
-                system_prompt = prompt_obj.system_prompt if prompt_obj else None
-                user_prompt = (
-                    prompt_obj.user_template.replace(
-                        "{{question}}", test_case.question
+            batch = work_items[offset : offset + batch_size]
+            completed_items = await asyncio.gather(
+                *[
+                    _execute_work_item(
+                        test_case,
+                        model,
+                        prompt_snapshot,
+                        global_limit=global_limit,
+                        provider_limits=provider_limits,
                     )
-                    if prompt_obj
-                    else test_case.question
-                )
+                    for test_case, model in batch
+                ]
+            )
 
-                target_response = await asyncio.wait_for(
-                    call_target_llm(
-                        model=model,
-                        system_prompt=system_prompt,
-                        prompt_text=user_prompt,
-                    ),
-                    timeout=settings.MODEL_CALL_TIMEOUT_SECONDS,
-                )
-                judge_response = await asyncio.wait_for(
-                    evaluate_with_judge(
-                        question=test_case.question,
-                        ground_truth=test_case.ground_truth,
-                        model_output=target_response["output"],
-                    ),
-                    timeout=settings.MODEL_CALL_TIMEOUT_SECONDS,
-                )
+            await db.refresh(run)
+            if run.status == "CANCELLED":
+                return f"Run {run_id} was cancelled after {results_count} results."
 
-                await db.refresh(run)
-                if run.status == "CANCELLED":
-                    return f"Run {run_id} was cancelled after {results_count} results."
-
+            result_records = []
+            for completed in completed_items:
+                test_case = completed["test_case"]
+                model = completed["model"]
+                target_response = completed["target"]
+                judge_response = completed["judge"]
                 used_demo_data = (
                     used_demo_data
                     or target_response.get("is_mock", False)
                     or judge_response.get("is_mock", False)
+                )
+                used_estimated_usage = (
+                    used_estimated_usage
+                    or target_response.get("usage_estimated", False)
                 )
                 total_cost += target_response["cost"]
                 total_latency += target_response["latency_ms"]
@@ -220,11 +315,15 @@ async def async_run_evaluation(
                 if judge_response["hallucination"] <= 3.0:
                     hallucinated_count += 1
                 results_count += 1
-
-                db.add(
+                model_total = model_totals[model]
+                model_total["count"] += 1
+                model_total["accuracy"] += judge_response["accuracy"]
+                model_total["cost"] += target_response["cost"]
+                model_total["latency_ms"] += target_response["latency_ms"]
+                result_records.append(
                     EvaluationResult(
                         evaluation_run_id=run.id,
-                        test_case_id=test_case.id,
+                        test_case_id=test_case["id"],
                         model_name=model,
                         raw_output=target_response["output"],
                         prompt_tokens=target_response["prompt_tokens"],
@@ -239,13 +338,14 @@ async def async_run_evaluation(
                         reason=judge_response["reason"],
                     )
                 )
-                metrics = dict(run.metrics or {})
-                metrics["progress"] = {
-                    "completed": results_count,
-                    "total": total_expected,
-                }
-                run.metrics = metrics
-                await db.commit()
+            db.add_all(result_records)
+            metrics = dict(run.metrics or {})
+            metrics["progress"] = {
+                "completed": results_count,
+                "total": total_expected,
+            }
+            run.metrics = metrics
+            await db.commit()
 
         await db.refresh(run)
         if run.status == "CANCELLED":
@@ -255,6 +355,10 @@ async def async_run_evaluation(
             **dict(run.metrics or {}),
             "total_results": results_count,
             "total_cost": round(total_cost, 6),
+            "target_model_cost": round(total_cost, 6),
+            "judge_model_cost": None,
+            "judge_cost_available": False,
+            "cost_estimated": used_estimated_usage,
             "average_latency_ms": round(total_latency / results_count, 2),
             "average_accuracy": round(sum_accuracy / results_count, 2),
             "average_completeness": round(sum_completeness / results_count, 2),
@@ -266,6 +370,24 @@ async def async_run_evaluation(
             ),
             "evaluation_mode": "DEMO" if used_demo_data else "REAL",
             "contains_mock_data": used_demo_data,
+            "model_metrics": {
+                model: {
+                    "count": values["count"],
+                    "average_accuracy": round(
+                        values["accuracy"] / values["count"],
+                        2,
+                    ),
+                    "average_cost": round(
+                        values["cost"] / values["count"],
+                        8,
+                    ),
+                    "average_latency_ms": round(
+                        values["latency_ms"] / values["count"],
+                        2,
+                    ),
+                }
+                for model, values in model_totals.items()
+            },
             "progress": {"completed": results_count, "total": total_expected},
         }
         run.status = "DEMO_COMPLETED" if used_demo_data else "COMPLETED"

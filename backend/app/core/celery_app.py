@@ -6,7 +6,10 @@ celery_app = Celery(
     "evalforge_tasks",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["backend.app.workers.tasks"],
+    include=[
+        "backend.app.workers.tasks",
+        "backend.app.workers.agent_tasks",
+    ],
 )
 
 # Optimize Celery worker configs

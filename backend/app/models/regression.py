@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy import Float, ForeignKey, JSON
+from sqlalchemy import Float, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base
@@ -10,6 +10,14 @@ class RegressionReport(Base):
 
     Helps track performance drops, hallucination rate spikes, cost, and latency deltas.
     """
+
+    __table_args__ = (
+        UniqueConstraint(
+            "baseline_run_id",
+            "comparison_run_id",
+            name="uq_regression_report_run_pair",
+        ),
+    )
 
     baseline_run_id: Mapped[int] = mapped_column(
         ForeignKey("evaluation_runs.id", ondelete="CASCADE"),
@@ -37,4 +45,3 @@ class RegressionReport(Base):
         foreign_keys=[comparison_run_id],
         lazy="selectin",
     )
-

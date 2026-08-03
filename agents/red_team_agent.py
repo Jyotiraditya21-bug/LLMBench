@@ -3,10 +3,27 @@ import os
 import re
 from typing import Any, Dict, List
 import anthropic
-import google.generativeai as genai
 import openai
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.app.core.config import settings
+from backend.app.core.google_client import generate_google_text
+
+
+class AgentEvaluationError(RuntimeError):
+    """Raised when an agent cannot produce a trustworthy real result."""
+
+
+class AdversarialCase(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    question: str = Field(min_length=1, max_length=20_000)
+    ground_truth: str = Field(min_length=1, max_length=20_000)
+    category: str = Field(pattern="^adversarial$")
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+ADVERSARIAL_CASES = TypeAdapter(List[AdversarialCase])
 
 REDTEAM_SYSTEM_PROMPT = """You are an AI Red Team Security Auditor.
 Your task is to generate adversarial variations of the provided seed test cases.
@@ -98,22 +115,29 @@ async def generate_adversarial_cases(seed_cases: List[Dict[str, Any]]) -> List[D
             pass
 
     # 3. Attempt Gemini (Gemini 1.5 Pro)
-    if not raw_text and settings.GEMINI_API_KEY:
+    if (
+        not raw_text
+        and settings.GEMINI_API_KEY
+        and settings.HAS_GOOGLE_GENAI
+    ):
         try:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            client = genai.GenerativeModel(
-                model_name="gemini-1.5-pro",
-                system_instruction=REDTEAM_SYSTEM_PROMPT
+            raw_text = await generate_google_text(
+                api_key=settings.GEMINI_API_KEY,
+                model="gemini-1.5-pro",
+                prompt=f"Seed cases:\n{seeds_str}",
+                system_prompt=REDTEAM_SYSTEM_PROMPT,
+                temperature=0.7,
+                max_output_tokens=1500,
+                json_output=True,
             )
-            response = await client.generate_content_async(
-                f"Seed cases:\n{seeds_str}",
-                generation_config={"temperature": 0.7, "response_mime_type": "application/json", "max_output_tokens": 1500}
-            )
-            raw_text = response.text
         except Exception:
             pass
 
     if not raw_text:
+        if not settings.DEMO_MODE:
+            raise AgentEvaluationError(
+                "No configured provider produced adversarial cases"
+            )
         return default_adversarial
 
     try:
@@ -122,9 +146,14 @@ async def generate_adversarial_cases(seed_cases: List[Dict[str, Any]]) -> List[D
         raw_text = re.sub(r"\s*```$", "", raw_text)
 
         parsed_json = json.loads(raw_text)
-        if isinstance(parsed_json, list):
-            return parsed_json
-        return default_adversarial
+        return [
+            item.model_dump()
+            for item in ADVERSARIAL_CASES.validate_python(parsed_json)
+        ]
 
-    except Exception:
+    except Exception as exc:
+        if not settings.DEMO_MODE:
+            raise AgentEvaluationError(
+                f"Invalid adversarial agent output: {exc}"
+            ) from exc
         return default_adversarial

@@ -77,6 +77,7 @@ class EvaluationRunBase(StrictSchema):
     prompt_id: Optional[int] = Field(None, gt=0)
     status: EvaluationStatus = "PENDING"
     metrics: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    snapshot: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class EvaluationRunCreate(EvaluationRunBase):
@@ -89,7 +90,7 @@ class EvaluationRun(EvaluationRunBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    results: List[EvaluationResult] = []
+    results: List[EvaluationResult] = Field(default_factory=list)
     prompt: Optional[Prompt] = None
 
 # --- Trigger & Arena Requests ---

@@ -27,6 +27,7 @@ let globalRuns = [];
 let globalDatasets = [];
 let globalPrompts = [];
 let activeTab = 'dashboard';
+let activeRunId = null;
 
 // --- Lifecycle Event Handlers ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -280,20 +281,7 @@ function populateRecentRunsTable(runs) {
 
 function renderFrontierChart(completedRuns) {
     // Generate averages grouped by model
-    const modelMetrics = {};
-    
-    completedRuns.forEach(run => {
-        const results = run.results || [];
-        results.forEach(res => {
-            const m = res.model_name;
-            if (!modelMetrics[m]) {
-                modelMetrics[m] = { accuracy: [], cost: [], latency: [] };
-            }
-            if (res.accuracy !== null) modelMetrics[m].accuracy.push(res.accuracy);
-            modelMetrics[m].cost.push(res.cost || 0.0);
-            modelMetrics[m].latency.push(res.latency_ms || 0.0);
-        });
-    });
+    const modelMetrics = collectModelMetrics(completedRuns);
 
     const dataRows = [];
     Object.keys(modelMetrics).forEach(model => {
@@ -370,6 +358,22 @@ function renderFrontierChart(completedRuns) {
     Plotly.newPlot('frontier-chart', traces, layout);
 }
 
+function collectModelMetrics(runs) {
+    const modelMetrics = {};
+    runs.forEach(run => {
+        const summaries = run.metrics?.model_metrics || {};
+        Object.entries(summaries).forEach(([model, summary]) => {
+            if (!modelMetrics[model]) {
+                modelMetrics[model] = { accuracy: [], cost: [], latency: [] };
+            }
+            modelMetrics[model].accuracy.push(summary.average_accuracy || 0);
+            modelMetrics[model].cost.push(summary.average_cost || 0);
+            modelMetrics[model].latency.push(summary.average_latency_ms || 0);
+        });
+    });
+    return modelMetrics;
+}
+
 function getRandomColor(model) {
     // Return standard thematic colors for primary models, otherwise random green-mint shades
     if (model.includes("gpt-4o")) return '#3b82f6'; // Blue
@@ -380,9 +384,10 @@ function getRandomColor(model) {
 }
 
 // --- 2. Dataset Management Operations ---
-async function loadDatasetsList() {
+async function loadDatasetsList(search = "") {
     try {
-        const datasets = await fetchApi('/datasets/');
+        const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+        const datasets = await fetchApi(`/datasets/${query}`);
         globalDatasets = datasets;
         
         const selector = document.getElementById("ds-selector");
@@ -486,6 +491,9 @@ async function loadTestCasesList(dsId) {
 }
 
 async function directDeleteTestCase(dsId, tcId) {
+    if (!window.confirm(`Delete test case ${tcId}? This cannot be undone.`)) {
+        return;
+    }
     if (!confirm(`Are you sure you want to delete Test Case ID ${tcId}?`)) return;
     try {
         await fetchApi(`/datasets/${dsId}/testcases/${tcId}`, { method: 'DELETE' });
@@ -887,11 +895,49 @@ async function loadHubConfiguration() {
         document.getElementById("hub-history-details-container").classList.add("hidden");
 
     } catch (err) {
+        const historySelect = document.getElementById("hub-history-run-selector");
+        historySelect.innerHTML = `<option value="">Unable to load evaluation runs</option>`;
         console.error("Error loading hub config data:", err);
     }
 }
 
 let pollingInterval = null;
+
+function filterHistoryRuns(search = "") {
+    const normalized = search.trim().toLowerCase();
+    const selector = document.getElementById("hub-history-run-selector");
+    selector.innerHTML = `<option value="">Select Evaluation Run to Inspect...</option>`;
+    globalRuns
+        .filter(run => {
+            const text = `${run.id} ${run.dataset_id} ${run.status}`.toLowerCase();
+            return !normalized || text.includes(normalized);
+        })
+        .forEach(run => {
+            const option = document.createElement("option");
+            option.value = run.id;
+            option.textContent = `Run ID: ${run.id} (Dataset ID: ${run.dataset_id}) - Status: ${run.status}`;
+            selector.appendChild(option);
+        });
+}
+
+async function cancelActiveRun() {
+    if (!activeRunId || !window.confirm(`Cancel evaluation run ${activeRunId}?`)) {
+        return;
+    }
+    const button = document.getElementById("hub-cancel-button");
+    button.disabled = true;
+    try {
+        const run = await fetchApi(`/evaluations/${activeRunId}/cancel`, {
+            method: "POST"
+        });
+        document.getElementById("hub-run-status").textContent = run.status;
+        document.getElementById("hub-run-message").textContent = "Evaluation run cancelled.";
+        button.classList.add("hidden");
+    } catch (err) {
+        button.disabled = false;
+        document.getElementById("hub-run-message").textContent = `Cancellation failed: ${err.message}`;
+    }
+}
 
 async function handleTriggerEvaluation(e) {
     e.preventDefault();
@@ -913,6 +959,9 @@ async function handleTriggerEvaluation(e) {
         models: models
     };
 
+    const startButton = document.getElementById("hub-start-button");
+    startButton.disabled = true;
+    startButton.textContent = "Starting…";
     try {
         const run = await fetchApi('/evaluations/trigger', {
             method: 'POST',
@@ -926,24 +975,39 @@ async function handleTriggerEvaluation(e) {
         const statusEl = document.getElementById("hub-run-status");
         const fillEl = document.getElementById("hub-run-progress");
         const msgEl = document.getElementById("hub-run-message");
+        const cancelButton = document.getElementById("hub-cancel-button");
 
+        activeRunId = run.id;
         statusEl.textContent = run.status;
-        fillEl.style.width = "10%";
+        fillEl.style.width = "0%";
+        fillEl.setAttribute("aria-valuenow", "0");
         msgEl.textContent = "Pipeline execution started in background. Polling server metrics...";
+        cancelButton.classList.remove("hidden");
+        cancelButton.disabled = false;
+        startButton.textContent = "Evaluation Running…";
 
         // Clear any old polls
         if (pollingInterval) clearInterval(pollingInterval);
 
-        let progressPercent = 10;
         pollingInterval = setInterval(async () => {
             try {
                 const polledRun = await fetchApi(`/evaluations/${run.id}`);
                 statusEl.textContent = polledRun.status;
+                const progress = polledRun.metrics?.progress || {};
+                const progressPercent = progress.total
+                    ? Math.round((progress.completed / progress.total) * 100)
+                    : 0;
+                fillEl.style.width = `${progressPercent}%`;
+                fillEl.setAttribute("aria-valuenow", String(progressPercent));
+                msgEl.textContent = progress.total
+                    ? `${progress.completed} of ${progress.total} evaluations complete.`
+                    : "Waiting for a worker to begin execution.";
                 
                 if (polledRun.status === 'COMPLETED') {
                     clearInterval(pollingInterval);
                     fillEl.style.width = "100%";
-                    msgEl.innerHTML = `<span style="color:var(--accent-green)">Pipeline evaluation complete! Click 'Historical Execution Logs' to inspect outputs.</span>`;
+                    fillEl.setAttribute("aria-valuenow", "100");
+                    msgEl.textContent = "Pipeline evaluation complete. Open Historical Execution Logs to inspect outputs.";
                 } else if (polledRun.status === 'DEMO_COMPLETED') {
                     clearInterval(pollingInterval);
                     fillEl.style.width = "100%";
@@ -953,23 +1017,28 @@ async function handleTriggerEvaluation(e) {
                     clearInterval(pollingInterval);
                     fillEl.style.width = "100%";
                     fillEl.style.backgroundColor = "var(--accent-red)";
-                    msgEl.innerHTML = `<span style="color:var(--accent-red)">Run failed: ${escapeHtml(polledRun.metrics?.error || 'Unknown executor error.')}</span>`;
+                    msgEl.textContent = `Run failed: ${polledRun.metrics?.error || 'Unknown executor error.'}`;
                 } else if (polledRun.status === 'CANCELLED') {
                     clearInterval(pollingInterval);
                     fillEl.style.width = "100%";
                     fillEl.style.backgroundColor = "var(--accent-yellow)";
                     msgEl.textContent = "Evaluation run cancelled.";
-                } else {
-                    progressPercent = Math.min(progressPercent + 10, 95);
-                    fillEl.style.width = `${progressPercent}%`;
+                }
+                if (['COMPLETED', 'DEMO_COMPLETED', 'FAILED', 'CANCELLED'].includes(polledRun.status)) {
+                    activeRunId = null;
+                    cancelButton.classList.add("hidden");
+                    startButton.disabled = false;
+                    startButton.textContent = "Start Evaluation Suite";
                 }
             } catch (err) {
-                console.error("Poller status checking failed:", err);
+                msgEl.textContent = `Status check failed: ${err.message}. Retrying…`;
             }
         }, 1500);
 
     } catch (err) {
         alert(`Failed to trigger evaluation pipeline: ${err.message}`);
+        startButton.disabled = false;
+        startButton.textContent = "Start Evaluation Suite";
     }
 }
 
@@ -981,7 +1050,10 @@ async function loadHistoryRunDetails() {
     }
 
     try {
-        const run = await fetchApi(`/evaluations/${runId}`);
+        const [run, results] = await Promise.all([
+            fetchApi(`/evaluations/${runId}`),
+            fetchApi(`/evaluations/${runId}/results?limit=100`)
+        ]);
         
         document.getElementById("hub-history-details-container").classList.remove("hidden");
         document.getElementById("inspect-run-heading").textContent = `Run Metadata — Status: ${run.status}`;
@@ -999,7 +1071,6 @@ async function loadHistoryRunDetails() {
         const tbody = document.getElementById("inspect-run-results-table-body");
         tbody.innerHTML = "";
 
-        const results = run.results || [];
         if (results.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No granular results generated for this run.</td></tr>`;
             return;
@@ -1089,12 +1160,24 @@ async function triggerRcaReport() {
             method: 'POST',
             body: JSON.stringify({ run_id: parseInt(runId) })
         });
-        
+        const job = await waitForAgentJob(res.job_id);
         // Render simple markdown response
-        outputMarkdown.textContent = res.report || "No response received from agent.";
+        outputMarkdown.textContent = job.result?.report || "No response received from agent.";
     } catch (err) {
-        outputMarkdown.innerHTML = `<span style="color:var(--accent-red)">Agent RCA pipeline execution failed. Details: ${escapeHtml(err.message)}</span>`;
+        outputMarkdown.textContent = `Agent RCA pipeline execution failed: ${err.message}`;
     }
+}
+
+async function waitForAgentJob(jobId, maxAttempts = 400) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const job = await fetchApi(`/agents/jobs/${encodeURIComponent(jobId)}`);
+        if (job.status === "SUCCESS") return job;
+        if (job.status === "FAILURE") {
+            throw new Error(job.error || "Agent job failed");
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 1500));
+    }
+    throw new Error("Agent job timed out");
 }
 
 async function triggerRedTeamSuite() {
@@ -1117,11 +1200,13 @@ async function triggerRedTeamSuite() {
             method: 'POST',
             body: JSON.stringify({ dataset_id: parseInt(dsId) })
         });
+        const job = await waitForAgentJob(res.job_id);
+        const result = job.result || {};
 
-        labelEl.textContent = `${res.adversarial_dataset_name} (ID: ${res.adversarial_dataset_id})`;
+        labelEl.textContent = `${result.adversarial_dataset_name} (ID: ${result.adversarial_dataset_id})`;
 
         tbody.innerHTML = "";
-        const cases = res.cases || [];
+        const cases = result.cases || [];
         if (cases.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No adversarial cases synthesized.</td></tr>`;
             return;
@@ -1152,19 +1237,7 @@ async function loadCostAnalytics() {
         const completedRuns = runs.filter(r => r.status === 'COMPLETED');
 
         // Accumulate models cost/value stats
-        const modelMetrics = {};
-        completedRuns.forEach(run => {
-            const results = run.results || [];
-            results.forEach(res => {
-                const m = res.model_name;
-                if (!modelMetrics[m]) {
-                    modelMetrics[m] = { accuracy: [], cost: [], latency: [] };
-                }
-                if (res.accuracy !== null) modelMetrics[m].accuracy.push(res.accuracy);
-                modelMetrics[m].cost.push(res.cost || 0.0);
-                modelMetrics[m].latency.push(res.latency_ms || 0.0);
-            });
-        });
+        const modelMetrics = collectModelMetrics(completedRuns);
 
         // Fallbacks if database is empty
         if (Object.keys(modelMetrics).length === 0) {

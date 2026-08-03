@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import pytest
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.app.models.dataset import Dataset
 from backend.app.schemas import dataset as schema_dataset
@@ -21,7 +21,14 @@ async def test_create_dataset_success(client: AsyncClient) -> None:
         updated_at=now
     )
 
-    with patch("backend.app.api.v1.datasets.crud_dataset.dataset.create", new_callable=AsyncMock) as mock_create:
+    with patch(
+        "backend.app.api.v1.datasets.crud_dataset.dataset.get_by_name_and_version",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "backend.app.api.v1.datasets.crud_dataset.dataset.create",
+        new_callable=AsyncMock,
+    ) as mock_create:
         mock_create.return_value = mock_dataset_db
 
         payload = {
@@ -40,7 +47,7 @@ async def test_create_dataset_success(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_datasets(client: AsyncClient) -> None:
+async def test_list_datasets(client: AsyncClient, mock_db: AsyncMock) -> None:
     """Asserts listing datasets calls get_multi and returns dataset schemas."""
     now = datetime.now(timezone.utc)
     mock_list = [
@@ -48,15 +55,18 @@ async def test_list_datasets(client: AsyncClient) -> None:
         Dataset(id=2, name="DS2", version="2.0", description="Desc2", category="reasoning", created_at=now, updated_at=now)
     ]
 
-    with patch("backend.app.api.v1.datasets.crud_dataset.dataset.get_multi", new_callable=AsyncMock) as mock_multi:
-        mock_multi.return_value = mock_list
+    scalars = MagicMock()
+    scalars.all.return_value = mock_list
+    query_result = MagicMock()
+    query_result.scalars.return_value = scalars
+    mock_db.execute.return_value = query_result
 
-        response = await client.get("/api/v1/datasets/")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 2
-        assert data[0]["name"] == "DS1"
-        assert data[1]["name"] == "DS2"
+    response = await client.get("/api/v1/datasets/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["name"] == "DS1"
+    assert data[1]["name"] == "DS2"
 
 
 @pytest.mark.asyncio

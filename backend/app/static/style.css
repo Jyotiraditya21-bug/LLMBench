@@ -25,6 +25,26 @@
     padding: 0;
 }
 
+.skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 10000;
+    padding: 10px 14px;
+    background: var(--text-main);
+    color: var(--bg-color);
+    transform: translateY(-150%);
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+}
+
+:focus-visible {
+    outline: 3px solid var(--accent-pine);
+    outline-offset: 3px;
+}
+
 body {
     background-color: var(--bg-color);
     /* Premium Blueprint Lines Grid in Dark Brown Checks (No Spotlight, No Dots) */
@@ -1035,4 +1055,3 @@ th.sortable.desc::after {
     flex-wrap: wrap;
     gap: 16px;
 }
-

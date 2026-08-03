@@ -23,6 +23,7 @@ class EvaluationRun(Base):
     
     # Store aggregated scores (e.g., {"accuracy": 4.5, "hallucination_rate": 0.1, "total_cost": 0.25})
     metrics: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
+    snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
     # Relationships
     dataset: Mapped["Dataset"] = relationship("Dataset")
@@ -31,7 +32,7 @@ class EvaluationRun(Base):
         "EvaluationResult",
         back_populates="evaluation_run",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="noload",
     )
 
 

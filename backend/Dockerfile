@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files maintaining the 'backend.app' package structure
 COPY app /workspace/backend/app
+COPY alembic /workspace/backend/alembic
+COPY alembic.ini /workspace/backend/alembic.ini
 COPY start.sh /workspace/backend/start.sh
 
 # Make entrypoint script executable

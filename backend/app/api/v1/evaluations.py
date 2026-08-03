@@ -5,10 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
 from backend.app.core.security import verify_api_key
+from backend.app.core.snapshots import (
+    build_evaluation_snapshot,
+    snapshots_are_compatible,
+)
 from backend.app.crud import dataset as crud_dataset
 from backend.app.crud import prompt as crud_prompt
 from backend.app.crud import evaluation as crud_eval
 from backend.app.crud import regression as crud_reg
+from backend.app.models.evaluation import EvaluationResult, EvaluationRun
 from backend.app.models.regression import RegressionReport
 from backend.app.schemas import evaluation as schema_eval
 from backend.app.schemas import regression as schema_reg
@@ -36,6 +41,7 @@ async def trigger_evaluation(
         )
 
     # 2. Verify prompt exists if provided
+    prompt = None
     if trigger_in.prompt_id:
         prompt = await crud_prompt.prompt.get(db, id=trigger_in.prompt_id)
         if not prompt:
@@ -50,6 +56,11 @@ async def trigger_evaluation(
         prompt_id=trigger_in.prompt_id,
         status="PENDING",
         metrics={},
+        snapshot=build_evaluation_snapshot(
+            dataset,
+            prompt,
+            trigger_in.models,
+        ),
     )
     run = await crud_eval.evaluation_run.create(db, obj_in=run_in)
 
@@ -85,10 +96,18 @@ async def trigger_evaluation(
 async def list_evaluation_runs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    run_status: Optional[schema_eval.EvaluationStatus] = Query(None, alias="status"),
+    dataset_id: Optional[int] = Query(None, gt=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists recent evaluation runs."""
-    return await crud_eval.evaluation_run.get_multi(db, skip=skip, limit=limit)
+    query = select(EvaluationRun).order_by(EvaluationRun.id.desc())
+    if run_status:
+        query = query.where(EvaluationRun.status == run_status)
+    if dataset_id:
+        query = query.where(EvaluationRun.dataset_id == dataset_id)
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
 
 
 @router.get("/{run_id}", response_model=schema_eval.EvaluationRun)
@@ -104,6 +123,36 @@ async def get_evaluation_run(
             detail=f"Evaluation run with ID {run_id} not found",
         )
     return run
+
+
+@router.get(
+    "/{run_id}/results",
+    response_model=List[schema_eval.EvaluationResult],
+)
+async def list_evaluation_results(
+    run_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    model: Optional[schema_eval.ModelName] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    run_exists = await db.scalar(
+        select(EvaluationRun.id).where(EvaluationRun.id == run_id)
+    )
+    if not run_exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evaluation run with ID {run_id} not found",
+        )
+    query = (
+        select(EvaluationResult)
+        .where(EvaluationResult.evaluation_run_id == run_id)
+        .order_by(EvaluationResult.id)
+    )
+    if model:
+        query = query.where(EvaluationResult.model_name == model)
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
 
 
 @router.post("/{run_id}/cancel", response_model=schema_eval.EvaluationRun)
@@ -173,6 +222,17 @@ async def compare_evaluation_runs(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Regression reports require two completed real evaluation runs; demo, pending, running, and failed runs are not eligible",
+        )
+    if not snapshots_are_compatible(
+        baseline.snapshot,
+        comparison.snapshot,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Regression reports require matching dataset snapshots, "
+                "model selections, and judge versions"
+            ),
         )
 
     # 2. Check if comparison exists

@@ -1,12 +1,11 @@
 import asyncio
-from backend.app.core.database import async_session_maker, init_db, drop_db
+from backend.app.core.database import async_session_maker
+from backend.app.core.snapshots import build_evaluation_snapshot
 from backend.app.models.dataset import Dataset, TestCase
 from backend.app.models.prompt import Prompt
 from backend.app.models.evaluation import EvaluationRun, EvaluationResult
 
 async def seed():
-    await drop_db()
-    await init_db()
     async with async_session_maker() as db:
         # Create dataset
         ds = Dataset(
@@ -49,6 +48,7 @@ async def seed():
         db.add(p)
         
         await db.commit()
+        await db.refresh(ds, ["test_cases"])
         await db.refresh(p)
         print(f"Created test cases and prompt ID: {p.id}")
 
@@ -57,6 +57,11 @@ async def seed():
             dataset_id=ds.id,
             prompt_id=p.id,
             status="DEMO_COMPLETED",
+            snapshot=build_evaluation_snapshot(
+                ds,
+                p,
+                ["claude-3-haiku"],
+            ),
             metrics={
                 "total_results": 2,
                 "total_cost": 0.0012,

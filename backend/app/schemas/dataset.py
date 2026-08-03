@@ -61,4 +61,4 @@ class Dataset(DatasetBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    test_cases: List[TestCase] = []
+    test_cases: List[TestCase] = Field(default_factory=list)

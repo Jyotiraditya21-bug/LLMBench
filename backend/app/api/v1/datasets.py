@@ -1,10 +1,14 @@
 from typing import Annotated, List, Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from backend.app.core.database import get_db
 from backend.app.core.security import verify_api_key
 from backend.app.crud import dataset as crud_dataset
+from backend.app.models.dataset import Dataset, TestCase
+from backend.app.models.evaluation import EvaluationResult, EvaluationRun
 from backend.app.schemas import dataset as schema_dataset
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
@@ -16,6 +20,19 @@ async def create_dataset(
     db: AsyncSession = Depends(get_db),
 ):
     """Creates a new evaluation dataset folder record."""
+    existing = await crud_dataset.dataset.get_by_name_and_version(
+        db,
+        name=dataset_in.name,
+        version=dataset_in.version,
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Dataset '{dataset_in.name}' version "
+                f"'{dataset_in.version}' already exists"
+            ),
+        )
     return await crud_dataset.dataset.create(db, obj_in=dataset_in)
 
 
@@ -23,10 +40,22 @@ async def create_dataset(
 async def list_datasets(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    search: Optional[str] = Query(None, min_length=1, max_length=255),
+    category: Optional[str] = Query(None, min_length=1, max_length=100),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists all available evaluation datasets."""
-    return await crud_dataset.dataset.get_multi(db, skip=skip, limit=limit)
+    query = (
+        select(Dataset)
+        .options(noload(Dataset.test_cases))
+        .order_by(Dataset.id.desc())
+    )
+    if search:
+        query = query.where(Dataset.name.ilike(f"%{search}%"))
+    if category:
+        query = query.where(Dataset.category == category)
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
 
 
 @router.get("/{dataset_id}", response_model=schema_dataset.Dataset)
@@ -40,6 +69,16 @@ async def get_dataset(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dataset with ID {dataset_id} not found",
+        )
+    referenced_run = await db.scalar(
+        select(EvaluationRun.id)
+        .where(EvaluationRun.dataset_id == dataset_id)
+        .limit(1)
+    )
+    if referenced_run:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dataset is preserved because evaluation history references it",
         )
     return db_dataset
 
@@ -97,12 +136,11 @@ async def create_test_cases_batch(
             detail=f"Dataset with ID {dataset_id} not found",
         )
     
-    created_items = []
-    for tc in test_cases_in:
-        item = await crud_dataset.test_case.create_with_dataset(
-            db, obj_in=tc, dataset_id=dataset_id
-        )
-        created_items.append(item)
+    created_items = await crud_dataset.test_case.create_many_with_dataset(
+        db,
+        items=test_cases_in,
+        dataset_id=dataset_id,
+    )
         
     return {
         "message": f"Successfully imported {len(created_items)} test cases",
@@ -115,6 +153,8 @@ async def list_test_cases(
     dataset_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    search: Optional[str] = Query(None, min_length=1, max_length=500),
+    category: Optional[str] = Query(None, min_length=1, max_length=100),
     db: AsyncSession = Depends(get_db),
 ):
     """Lists test cases within a dataset."""
@@ -124,9 +164,17 @@ async def list_test_cases(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dataset with ID {dataset_id} not found",
         )
-    return await crud_dataset.test_case.get_by_dataset(
-        db, dataset_id=dataset_id, skip=skip, limit=limit
+    query = (
+        select(TestCase)
+        .where(TestCase.dataset_id == dataset_id)
+        .order_by(TestCase.id)
     )
+    if search:
+        query = query.where(TestCase.question.ilike(f"%{search}%"))
+    if category:
+        query = query.where(TestCase.category == category)
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
 
 
 @router.delete("/{dataset_id}/testcases/{test_case_id}", status_code=status.HTTP_200_OK)
@@ -141,6 +189,16 @@ async def delete_test_case(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Test case {test_case_id} not found under dataset {dataset_id}",
+        )
+    referenced_result = await db.scalar(
+        select(EvaluationResult.id)
+        .where(EvaluationResult.test_case_id == test_case_id)
+        .limit(1)
+    )
+    if referenced_result:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Test case is preserved because evaluation history references it",
         )
     await crud_dataset.test_case.remove(db, id=test_case_id)
     return {"message": f"Test case {test_case_id} removed successfully"}
