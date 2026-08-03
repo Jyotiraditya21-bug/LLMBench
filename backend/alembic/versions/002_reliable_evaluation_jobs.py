@@ -28,16 +28,16 @@ def upgrade() -> None:
         )
         """
     )
-    op.create_unique_constraint(
-        "uq_evaluation_result_run_case_model",
-        "evaluation_results",
-        ["evaluation_run_id", "test_case_id", "model_name"],
-    )
+    with op.batch_alter_table("evaluation_results") as batch_op:
+        batch_op.create_unique_constraint(
+            "uq_evaluation_result_run_case_model",
+            ["evaluation_run_id", "test_case_id", "model_name"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_evaluation_result_run_case_model",
-        "evaluation_results",
-        type_="unique",
-    )
+    with op.batch_alter_table("evaluation_results") as batch_op:
+        batch_op.drop_constraint(
+            "uq_evaluation_result_run_case_model",
+            type_="unique",
+        )

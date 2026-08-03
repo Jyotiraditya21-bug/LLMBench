@@ -18,6 +18,12 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+json_type = sa.JSON().with_variant(
+    postgresql.JSONB(astext_type=sa.Text()),
+    "postgresql",
+)
+
+
 def upgrade() -> None:
     # 1. Create Datasets table
     op.create_table(
@@ -42,7 +48,7 @@ def upgrade() -> None:
         sa.Column('question', sa.Text(), nullable=False),
         sa.Column('ground_truth', sa.Text(), nullable=False),
         sa.Column('category', sa.String(length=100), nullable=False),
-        sa.Column('meta_data', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('meta_data', json_type, nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(['dataset_id'], ['datasets.id'], ondelete='CASCADE'),
@@ -73,7 +79,7 @@ def upgrade() -> None:
         sa.Column('dataset_id', sa.Integer(), nullable=False),
         sa.Column('prompt_id', sa.Integer(), nullable=True),
         sa.Column('status', sa.String(length=50), nullable=False, server_default='PENDING'),
-        sa.Column('metrics', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('metrics', json_type, nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(['dataset_id'], ['datasets.id'], ondelete='CASCADE'),
@@ -115,7 +121,7 @@ def upgrade() -> None:
         sa.Column('baseline_run_id', sa.Integer(), nullable=False),
         sa.Column('comparison_run_id', sa.Integer(), nullable=False),
         sa.Column('score_delta', sa.Float(), nullable=False, server_default='0.0'),
-        sa.Column('findings', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('findings', json_type, nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(['baseline_run_id'], ['evaluation_runs.id'], ondelete='CASCADE'),
