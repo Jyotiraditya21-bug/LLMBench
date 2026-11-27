@@ -95,7 +95,10 @@ async def readiness_check():
     except Exception:
         logger.exception("readiness_redis_failed")
     finally:
-        await redis_client.aclose()
+        try:
+            await redis_client.aclose()
+        except Exception:
+            logger.debug("readiness_redis_close_failed", exc_info=True)
 
     if settings.READINESS_REQUIRE_WORKER:
         try:
